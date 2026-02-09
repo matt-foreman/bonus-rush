@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { Ladder } from './pages/Ladder'
-import { PuzzlePage } from './pages/PuzzlePage'
+import { Puzzle } from './pages/Puzzle'
 import { ResultsPage } from './pages/ResultsPage'
 
 export default function App() {
@@ -9,7 +9,7 @@ export default function App() {
       <main>
         <Routes>
           <Route path="/" element={<Ladder />} />
-          <Route path="/puzzle/:puzzleId" element={<PuzzlePage />} />
+          <Route path="/puzzle/:puzzleId" element={<Puzzle />} />
           <Route path="/results/:puzzleId" element={<ResultsPage />} />
         </Routes>
       </main>
