@@ -1,30 +1,28 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { bonusRushLadderConfig, bonusRushPuzzles } from '../data/bonusRush'
-import { getProgress, isPuzzleUnlocked, isTierUnlocked } from '../state/storage'
+import { bonusRushPuzzles } from '../data/bonusRush'
+import {
+  getInventory,
+  getProgress,
+  getPuzzleUnlockStatus,
+  isDemoModeEnabled,
+  isTierUnlocked,
+  setDemoModeEnabled,
+} from '../state/storage'
 import type { TierName } from '../types/bonusRush'
 
 type NodeState = 'Locked' | 'In Progress' | 'Completed' | 'Coming Next Week'
 
 const tiers: TierName[] = ['Bronze', 'Silver', 'Gold']
 
-function todayISODate(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 function resolveNodeState(puzzleId: string, progress: ReturnType<typeof getProgress>): NodeState {
-  const unlock = bonusRushLadderConfig.unlocks.find((item) => item.puzzleId === puzzleId)
-  const today = todayISODate()
+  const unlockStatus = getPuzzleUnlockStatus(puzzleId)
 
-  if (unlock?.label === 'Coming Next Week' && today < unlock.unlockDate) {
+  if (unlockStatus.isComingNextWeek) {
     return 'Coming Next Week'
   }
 
-  if (!isPuzzleUnlocked(puzzleId)) {
+  if (!unlockStatus.isUnlocked) {
     return 'Locked'
   }
 
@@ -49,13 +47,34 @@ function StarsRow({ count, locked }: { count: number; locked: boolean }) {
 
 export function Ladder() {
   const navigate = useNavigate()
+  const [demoMode, setDemoMode] = useState(() => isDemoModeEnabled())
   const progress = useMemo(() => getProgress(), [])
+  const inventory = useMemo(() => getInventory(), [])
 
   return (
     <section className="ladder-page">
       <header className="card ladder-header">
         <h1>Bonus Rush</h1>
         <p>New puzzles every week</p>
+        <div className="header-controls">
+          {demoMode ? <span className="demo-badge">Demo Mode</span> : null}
+          <button
+            type="button"
+            className={`demo-toggle ${demoMode ? 'active' : ''}`}
+            onClick={() => {
+              const next = !demoMode
+              setDemoModeEnabled(next)
+              setDemoMode(next)
+              window.location.reload()
+            }}
+          >
+            Demo Mode: {demoMode ? 'On' : 'Off'}
+          </button>
+        </div>
+        <div className="inventory-strip" aria-label="Inventory">
+          <span className="inventory-chip">Coins: {inventory.coins}</span>
+          <span className="inventory-chip">Hints: {inventory.hints}</span>
+        </div>
       </header>
 
       <div className="ladder-scroll card" role="list" aria-label="Bonus Rush ladder">

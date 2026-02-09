@@ -1,16 +1,16 @@
 import { Route, Routes } from 'react-router-dom'
 import { Ladder } from './pages/Ladder'
 import { Puzzle } from './pages/Puzzle'
-import { ResultsPage } from './pages/ResultsPage'
+import { Results } from './pages/Results'
 
 export default function App() {
   return (
-    <div className="app-shell">
-      <main>
+    <div className="app-shell phone-frame-layout">
+      <main className="app-main">
         <Routes>
           <Route path="/" element={<Ladder />} />
           <Route path="/puzzle/:puzzleId" element={<Puzzle />} />
-          <Route path="/results/:puzzleId" element={<ResultsPage />} />
+          <Route path="/results/:puzzleId" element={<Results />} />
         </Routes>
       </main>
     </div>

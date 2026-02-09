@@ -3,6 +3,9 @@ import type { TierName } from '../types/bonusRush'
 
 const PROGRESS_STORAGE_KEY = 'bonus-rush.progress.v1'
 const INVENTORY_STORAGE_KEY = 'bonus-rush.inventory.v1'
+export const DEBUG_ADVANCE_DAYS_KEY = 'bonus-rush.debugAdvanceDays'
+export const DEMO_MODE_KEY = 'bonus-rush.demoMode'
+const DAY_MS = 24 * 60 * 60 * 1000
 
 export interface TierProgress {
   bestStars: number
@@ -24,6 +27,15 @@ export type InventoryDelta = Partial<Inventory>
 
 const tierOrder: TierName[] = ['Bronze', 'Silver', 'Gold']
 
+export interface PuzzleUnlockStatus {
+  isUnlocked: boolean
+  isComingNextWeek: boolean
+  prerequisitesMet: boolean
+  weeklyDateReached: boolean
+  unlockDate?: string
+  daysUntilUnlock: number
+}
+
 const defaultInventory: Inventory = {
   coins: 500,
   hints: 3,
@@ -32,12 +44,85 @@ const defaultInventory: Inventory = {
   premiumPortraitDrops: 0,
 }
 
+const demoInventory: Inventory = {
+  coins: 99999,
+  hints: 99,
+  wildlifeTokens: 99,
+  portraitProgress: 99,
+  premiumPortraitDrops: 99,
+}
+
 function getTodayLocalISODate(): string {
-  const now = new Date()
+  const now = getEffectiveTodayDate()
   const year = now.getFullYear()
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function getDebugAdvanceDays(): number {
+  if (!isBrowserStorageAvailable()) {
+    return 0
+  }
+
+  const raw = window.localStorage.getItem(DEBUG_ADVANCE_DAYS_KEY)
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed)) {
+    return 0
+  }
+
+  return Math.trunc(parsed)
+}
+
+function getEffectiveTodayDate(): Date {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+
+  const debugAdvanceDays = getDebugAdvanceDays()
+  if (debugAdvanceDays !== 0) {
+    return new Date(now.getTime() + debugAdvanceDays * DAY_MS)
+  }
+
+  return now
+}
+
+function parseISODate(dateISO: string | undefined): Date | null {
+  if (!dateISO) {
+    return null
+  }
+
+  const [year, month, day] = dateISO.split('-').map((part) => Number(part))
+  if (!year || !month || !day) {
+    return null
+  }
+
+  const parsed = new Date(year, month - 1, day)
+  parsed.setHours(0, 0, 0, 0)
+  return parsed
+}
+
+export function getEffectiveTodayISODate(): string {
+  return getTodayLocalISODate()
+}
+
+export function isDemoModeEnabled(): boolean {
+  if (!isBrowserStorageAvailable()) {
+    return false
+  }
+
+  return window.localStorage.getItem(DEMO_MODE_KEY) === 'true'
+}
+
+export function setDemoModeEnabled(enabled: boolean): void {
+  if (!isBrowserStorageAvailable()) {
+    return
+  }
+
+  window.localStorage.setItem(DEMO_MODE_KEY, enabled ? 'true' : 'false')
+
+  if (enabled) {
+    window.localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(demoInventory))
+  }
 }
 
 function clampMinZero(value: number): number {
@@ -147,6 +232,10 @@ export function recordRun(puzzleId: string, tier: TierName, found: number, stars
 }
 
 export function isTierUnlocked(puzzleId: string, tier: TierName): boolean {
+  if (isDemoModeEnabled()) {
+    return true
+  }
+
   if (!isPuzzleUnlocked(puzzleId)) {
     return false
   }
@@ -166,26 +255,63 @@ export function isTierUnlocked(puzzleId: string, tier: TierName): boolean {
 }
 
 export function isPuzzleUnlocked(puzzleId: string): boolean {
+  return getPuzzleUnlockStatus(puzzleId).isUnlocked
+}
+
+export function getPuzzleUnlockStatus(puzzleId: string): PuzzleUnlockStatus {
+  if (isDemoModeEnabled()) {
+    return {
+      isUnlocked: true,
+      isComingNextWeek: false,
+      prerequisitesMet: true,
+      weeklyDateReached: true,
+      daysUntilUnlock: 0,
+    }
+  }
+
   const puzzleIndex = bonusRushPuzzles.findIndex((puzzle) => puzzle.id === puzzleId)
   if (puzzleIndex === -1) {
-    return false
+    return {
+      isUnlocked: false,
+      isComingNextWeek: false,
+      prerequisitesMet: false,
+      weeklyDateReached: false,
+      daysUntilUnlock: 0,
+    }
   }
 
   const unlock = bonusRushLadderConfig.unlocks.find((item) => item.puzzleId === puzzleId)
-  const today = getTodayLocalISODate()
-  const weeklyDateReached = !unlock || today >= unlock.unlockDate
+  const today = getEffectiveTodayDate()
+  const unlockDate = parseISODate(unlock?.unlockDate)
+  const daysUntilUnlock = unlockDate ? Math.ceil((unlockDate.getTime() - today.getTime()) / DAY_MS) : 0
+  const weeklyDateReached = !unlockDate || daysUntilUnlock <= 0
 
-  if (puzzleIndex === 0) {
-    return weeklyDateReached
+  let prerequisitesMet = true
+
+  if (puzzleIndex > 0) {
+    const previousPuzzleId = bonusRushPuzzles[puzzleIndex - 1].id
+    const previousBronzeStars = getProgress()[previousPuzzleId]?.Bronze?.bestStars ?? 0
+    prerequisitesMet = previousBronzeStars >= 1
   }
 
-  const previousPuzzleId = bonusRushPuzzles[puzzleIndex - 1].id
-  const previousBronzeStars = getProgress()[previousPuzzleId]?.Bronze?.bestStars ?? 0
+  const isUnlocked = prerequisitesMet && weeklyDateReached
+  const isComingNextWeek = !isUnlocked && daysUntilUnlock > 0 && daysUntilUnlock <= 7
 
-  return previousBronzeStars >= 1 && weeklyDateReached
+  return {
+    isUnlocked,
+    isComingNextWeek,
+    prerequisitesMet,
+    weeklyDateReached,
+    unlockDate: unlock?.unlockDate,
+    daysUntilUnlock: Math.max(0, daysUntilUnlock),
+  }
 }
 
 export function getInventory(): Inventory {
+  if (isDemoModeEnabled()) {
+    return { ...demoInventory }
+  }
+
   if (!isBrowserStorageAvailable()) {
     return { ...defaultInventory }
   }

@@ -10,7 +10,7 @@ import {
   WordWheel,
 } from '../components'
 import { bonusRushPuzzles } from '../data/bonusRush'
-import { getInventory, isTierUnlocked, recordRun, updateInventory } from '../state/storage'
+import { getInventory, isDemoModeEnabled, isTierUnlocked, recordRun, type Inventory, updateInventory } from '../state/storage'
 import type { TierConfig, TierName } from '../types/bonusRush'
 import { findMatchingSlot, placeWord } from '../utils/crossword'
 import { isAllowedWord, isValidWord, normalizeWord } from '../utils/wordGame'
@@ -87,11 +87,12 @@ export function Puzzle() {
   const [bonusWords, setBonusWords] = useState<string[]>([])
   const [latestBonusWord, setLatestBonusWord] = useState<string | null>(null)
   const [secondsLeft, setSecondsLeft] = useState(START_TIME_SECONDS)
-  const [coins, setCoins] = useState(() => getInventory().coins)
+  const [inventory, setInventory] = useState<Inventory>(() => getInventory())
   const [rewardVideosUsed, setRewardVideosUsed] = useState(0)
   const [iapUsed, setIapUsed] = useState(false)
   const [showTimeExpiredModal, setShowTimeExpiredModal] = useState(false)
   const [feedback, setFeedback] = useState('')
+  const demoMode = useMemo(() => isDemoModeEnabled(), [])
 
   const tierConfig = puzzle?.tiers[activeTier]
 
@@ -112,7 +113,7 @@ export function Puzzle() {
     setCrosswordWords([])
     setBonusWords([])
     setLatestBonusWord(null)
-    setCoins(getInventory().coins)
+    setInventory(getInventory())
     setRewardVideosUsed(0)
     setIapUsed(false)
     setShowTimeExpiredModal(false)
@@ -150,9 +151,15 @@ export function Puzzle() {
     }
 
     if (secondsLeft === 0 && allBonusFound) {
-      navigate(`/results/${puzzle?.id ?? ''}`)
+      const found = crosswordWords.length + bonusWords.length
+      const params = new URLSearchParams({
+        tier: activeTier,
+        found: String(found),
+        run: String(Date.now()),
+      })
+      navigate(`/results/${puzzle?.id ?? ''}?${params.toString()}`)
     }
-  }, [secondsLeft, bonusWords.length, tierConfig, navigate, puzzle?.id])
+  }, [secondsLeft, bonusWords.length, crosswordWords.length, activeTier, tierConfig, navigate, puzzle?.id])
 
   if (!puzzle || !tierConfig) {
     return (
@@ -226,7 +233,12 @@ export function Puzzle() {
   }
 
   const closeRunToResults = () => {
-    navigate(`/results/${puzzle.id}`)
+    const params = new URLSearchParams({
+      tier: activeTier,
+      found: String(totalFound),
+      run: String(Date.now()),
+    })
+    navigate(`/results/${puzzle.id}?${params.toString()}`)
   }
 
   const addExtraTimeFromRewardVideo = () => {
@@ -240,12 +252,12 @@ export function Puzzle() {
 
   const addExtraTimeFromCoins = () => {
     const cost = coinCostByTier[activeTier]
-    if (coins < cost) {
+    if (inventory.coins < cost) {
       return
     }
 
     const next = updateInventory({ coins: -cost })
-    setCoins(next.coins)
+    setInventory(next)
     setSecondsLeft((value) => value + 30)
     setShowTimeExpiredModal(false)
   }
@@ -260,14 +272,19 @@ export function Puzzle() {
   }
 
   return (
-    <section className="puzzle-page card page">
+    <section className={`puzzle-page card page tier-accent-${activeTier.toLowerCase()}`}>
       <header className="puzzle-header">
         <SecondaryButton onClick={() => navigate('/')}>Back</SecondaryButton>
         <TierBadge tier={activeTier} />
+        {demoMode ? <span className="demo-badge">Demo Mode</span> : null}
         <span className="timer-pill" aria-label="Timer">
           {formatTimer(secondsLeft)}
         </span>
         <BonusCounter found={bonusWords.length} bonusTotal={tierConfig.bonusWordsTotal} />
+        <div className="inventory-strip" aria-label="Inventory">
+          <span className="inventory-chip">Coins: {inventory.coins}</span>
+          <span className="inventory-chip">Hints: {inventory.hints}</span>
+        </div>
       </header>
 
       <div className="tier-tabs" role="tablist" aria-label="Tier selection">
@@ -335,7 +352,7 @@ export function Puzzle() {
       <TimeExpiredModal
         open={showTimeExpiredModal}
         tier={activeTier}
-        coins={coins}
+        coins={inventory.coins}
         rewardVideosUsed={rewardVideosUsed}
         iapUsed={iapUsed}
         onRewardVideo={addExtraTimeFromRewardVideo}
