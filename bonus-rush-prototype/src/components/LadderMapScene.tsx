@@ -7,7 +7,7 @@ import { Tooltip } from './Tooltip'
 
 const TOOLTIP_AUTO_CLOSE_MS = 2500
 const RESIZE_DEBOUNCE_MS = 100
-const DEBUG_MAP = true
+const DEBUG_AVAILABLE = import.meta.env.DEV
 
 interface NodeAnchor {
   level: number
@@ -41,7 +41,19 @@ interface Sparkle {
   delay: string
 }
 
-interface PlacementPoint {
+interface MappingParams {
+  containerW: number
+  containerH: number
+  naturalW: number
+  naturalH: number
+  scale: number
+  drawnW: number
+  drawnH: number
+  offsetX: number
+  offsetY: number
+}
+
+interface DebugCapture {
   containerX: number
   containerY: number
   imageX: number
@@ -62,38 +74,50 @@ interface LadderMapSceneProps {
   onSelectLevel: (puzzleId: string) => void
 }
 
-function imageToScreenPoint(containerRect: DOMRect, naturalWidth: number, naturalHeight: number, anchor: NodeAnchor): ScreenPoint {
-  const scale = Math.max(containerRect.width / naturalWidth, containerRect.height / naturalHeight)
-  const drawnW = naturalWidth * scale
-  const drawnH = naturalHeight * scale
-  const offsetX = (containerRect.width - drawnW) / 2
-  const offsetY = (containerRect.height - drawnH) / 2
+function buildMappingParams(
+  containerW: number,
+  containerH: number,
+  naturalW: number,
+  naturalH: number,
+  fitMode: 'cover' | 'contain',
+): MappingParams {
+  const scale =
+    fitMode === 'cover'
+      ? Math.max(containerW / naturalW, containerH / naturalH)
+      : Math.min(containerW / naturalW, containerH / naturalH)
+
+  const drawnW = naturalW * scale
+  const drawnH = naturalH * scale
+  const offsetX = (containerW - drawnW) / 2
+  const offsetY = (containerH - drawnH) / 2
 
   return {
-    left: offsetX + anchor.x * scale,
-    top: offsetY + anchor.y * scale,
+    containerW,
+    containerH,
+    naturalW,
+    naturalH,
+    scale,
+    drawnW,
+    drawnH,
+    offsetX,
+    offsetY,
   }
 }
 
-function screenToImagePoint(
-  containerRect: DOMRect,
-  naturalWidth: number,
-  naturalHeight: number,
-  mouseX: number,
-  mouseY: number,
-): { imageX: number; imageY: number } {
-  const scale = Math.max(containerRect.width / naturalWidth, containerRect.height / naturalHeight)
-  const drawnW = naturalWidth * scale
-  const drawnH = naturalHeight * scale
-  const offsetX = (containerRect.width - drawnW) / 2
-  const offsetY = (containerRect.height - drawnH) / 2
+function imageToScreen(mapping: MappingParams, x: number, y: number): ScreenPoint {
+  return {
+    left: mapping.offsetX + x * mapping.scale,
+    top: mapping.offsetY + y * mapping.scale,
+  }
+}
 
-  const imageX = (mouseX - offsetX) / scale
-  const imageY = (mouseY - offsetY) / scale
+function screenToImage(mapping: MappingParams, cx: number, cy: number): { imageX: number; imageY: number } {
+  const imageX = (cx - mapping.offsetX) / mapping.scale
+  const imageY = (cy - mapping.offsetY) / mapping.scale
 
   return {
-    imageX: Math.max(0, Math.min(naturalWidth, imageX)),
-    imageY: Math.max(0, Math.min(naturalHeight, imageY)),
+    imageX: Math.max(0, Math.min(mapping.naturalW, imageX)),
+    imageY: Math.max(0, Math.min(mapping.naturalH, imageY)),
   }
 }
 
@@ -116,17 +140,18 @@ function buildPathD(points: ScreenPoint[]): string {
 }
 
 export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
-  const sceneRef = useRef<HTMLDivElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
-  const [nodeAnchors, setNodeAnchors] = useState<NodeAnchor[]>(NODE_ANCHORS)
-  const [placementMode, setPlacementMode] = useState(false)
-  const [placementPoint, setPlacementPoint] = useState<PlacementPoint | null>(null)
+
+  const [debugEnabled, setDebugEnabled] = useState(false)
+  const [debugContainMode, setDebugContainMode] = useState(false)
+  const [debugCapture, setDebugCapture] = useState<DebugCapture | null>(null)
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null)
-  const [copyStatus, setCopyStatus] = useState('')
   const [screenPoints, setScreenPoints] = useState<ScreenPoint[]>([])
   const [activeTooltip, setActiveTooltip] = useState<ActiveTooltip | null>(null)
 
-  const cappedLevels = useMemo(() => levels.slice(0, nodeAnchors.length), [levels, nodeAnchors.length])
+  const cappedLevels = useMemo(() => levels.slice(0, NODE_ANCHORS.length), [levels])
   const sparkles = useMemo<Sparkle[]>(
     () =>
       Array.from({ length: 10 }).map((_, index) => ({
@@ -137,6 +162,20 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
       })),
     [],
   )
+
+  const mapping = useMemo(() => {
+    if (!naturalSize || containerSize.width <= 0 || containerSize.height <= 0) {
+      return null
+    }
+
+    return buildMappingParams(
+      containerSize.width,
+      containerSize.height,
+      naturalSize.width,
+      naturalSize.height,
+      debugEnabled && debugContainMode ? 'contain' : 'cover',
+    )
+  }, [containerSize, naturalSize, debugEnabled, debugContainMode])
 
   useEffect(() => {
     const imageEl = imgRef.current
@@ -149,59 +188,69 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
   }, [])
 
   useEffect(() => {
-    const computePoints = () => {
-      const sceneEl = sceneRef.current
-      const imageEl = imgRef.current
-      if (!sceneEl || !imageEl) {
+    const computeContainerSize = () => {
+      const container = containerRef.current
+      if (!container) {
         return
       }
 
-      const rect = sceneEl.getBoundingClientRect()
-      const naturalWidth = imageEl.naturalWidth || naturalSize?.width || 0
-      const naturalHeight = imageEl.naturalHeight || naturalSize?.height || 0
-      if (rect.width <= 0 || rect.height <= 0 || naturalWidth <= 0 || naturalHeight <= 0) {
+      const rect = container.getBoundingClientRect()
+      if (rect.width <= 0 || rect.height <= 0) {
         return
       }
 
-      const points = cappedLevels.map((level) => {
-        const anchor = nodeAnchors.find((entry) => entry.level === level.levelNumber)
-        if (!anchor) {
-          return { left: rect.width / 2, top: rect.height / 2 }
-        }
-        return imageToScreenPoint(rect, naturalWidth, naturalHeight, anchor)
+      setContainerSize({
+        width: rect.width,
+        height: rect.height,
       })
-      setScreenPoints(points)
     }
 
-    computePoints()
+    computeContainerSize()
 
     let timeoutId: number | null = null
-    const debouncedCompute = () => {
+    const debouncedMeasure = () => {
       if (timeoutId) {
         window.clearTimeout(timeoutId)
       }
-      timeoutId = window.setTimeout(computePoints, RESIZE_DEBOUNCE_MS)
+      timeoutId = window.setTimeout(computeContainerSize, RESIZE_DEBOUNCE_MS)
     }
 
     const resizeObserver = new ResizeObserver(() => {
-      debouncedCompute()
+      debouncedMeasure()
     })
 
-    const sceneEl = sceneRef.current
-    if (sceneEl) {
-      resizeObserver.observe(sceneEl)
+    const container = containerRef.current
+    if (container) {
+      resizeObserver.observe(container)
     }
 
-    window.addEventListener('resize', debouncedCompute)
+    window.addEventListener('resize', debouncedMeasure)
 
     return () => {
-      window.removeEventListener('resize', debouncedCompute)
+      window.removeEventListener('resize', debouncedMeasure)
       resizeObserver.disconnect()
       if (timeoutId) {
         window.clearTimeout(timeoutId)
       }
     }
-  }, [cappedLevels, nodeAnchors, naturalSize])
+  }, [])
+
+  useEffect(() => {
+    if (!mapping) {
+      setScreenPoints([])
+      return
+    }
+
+    const points = cappedLevels.map((level) => {
+      const anchor = NODE_ANCHORS.find((entry) => entry.level === level.levelNumber)
+      if (!anchor) {
+        return { left: mapping.containerW / 2, top: mapping.containerH / 2 }
+      }
+      return imageToScreen(mapping, anchor.x, anchor.y)
+    })
+
+    setScreenPoints(points)
+  }, [mapping, cappedLevels])
 
   useEffect(() => {
     if (!activeTooltip) {
@@ -210,14 +259,6 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
     const timeout = window.setTimeout(() => setActiveTooltip(null), TOOLTIP_AUTO_CLOSE_MS)
     return () => window.clearTimeout(timeout)
   }, [activeTooltip])
-
-  useEffect(() => {
-    if (!copyStatus) {
-      return
-    }
-    const timeout = window.setTimeout(() => setCopyStatus(''), 1500)
-    return () => window.clearTimeout(timeout)
-  }, [copyStatus])
 
   useEffect(() => {
     if (!activeTooltip) {
@@ -252,46 +293,33 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
     <div className="mapSceneHost single">
       <div className="mapScene single">
         <div
-          ref={sceneRef}
+          ref={containerRef}
           className="mapSceneContent"
           style={{
             height: '100%',
           }}
           onClick={(event) => {
-            if (!placementMode) {
+            if (!debugEnabled || !mapping) {
               return
             }
 
             const target = event.target as HTMLElement
-            if (
-              target.closest('.mapNode') ||
-              target.closest('.debugButton') ||
-              target.closest('.debugTooltipPanel') ||
-              target.closest('.debugAssignRow') ||
-              target.closest('.debugPanel')
-            ) {
+            if (target.closest('.mapNode') || target.closest('.debugButton') || target.closest('.mapDebugPanel')) {
               return
             }
 
-            const container = sceneRef.current
-            if (!container) {
+            const rect = containerRef.current?.getBoundingClientRect()
+            if (!rect) {
               return
             }
 
-            const rect = container.getBoundingClientRect()
-            const imageEl = imgRef.current
-            const naturalWidth = imageEl?.naturalWidth || naturalSize?.width || 0
-            const naturalHeight = imageEl?.naturalHeight || naturalSize?.height || 0
-            if (naturalWidth <= 0 || naturalHeight <= 0) {
-              return
-            }
-            const mouseX = event.clientX - rect.left
-            const mouseY = event.clientY - rect.top
-            const { imageX, imageY } = screenToImagePoint(rect, naturalWidth, naturalHeight, mouseX, mouseY)
+            const cx = event.clientX - rect.left
+            const cy = event.clientY - rect.top
+            const { imageX, imageY } = screenToImage(mapping, cx, cy)
 
-            setPlacementPoint({
-              containerX: mouseX,
-              containerY: mouseY,
+            setDebugCapture({
+              containerX: cx,
+              containerY: cy,
               imageX,
               imageY,
             })
@@ -302,6 +330,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
             className="mapBg"
             src={bonusRushMapWithLogo}
             alt="Bonus Rush Map"
+            style={{ objectFit: debugEnabled && debugContainMode ? 'contain' : 'cover', objectPosition: 'center' }}
             onLoad={(event) => {
               setNaturalSize({
                 width: event.currentTarget.naturalWidth,
@@ -350,9 +379,6 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                   }}
                   aria-disabled={isLocked}
                   onClick={() => {
-                    if (placementMode) {
-                      return
-                    }
                     if (isLocked) {
                       setActiveTooltip({
                         text: getLockMessage(level.lockReason),
@@ -376,80 +402,62 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                 </button>
               )
             })}
-
-            {DEBUG_MAP && placementMode
-              ? cappedLevels.map((level, index) => {
-                  const point = screenPoints[index]
-                  const anchor = nodeAnchors.find((entry) => entry.level === level.levelNumber)
-                  if (!point || !anchor) {
-                    return null
-                  }
-                  return (
-                    <div
-                      key={`debug-${level.puzzleId}`}
-                      className="mapDebugMark"
-                      style={{ left: `${point.left}px`, top: `${point.top}px` }}
-                    >
-                      <span className="mapDebugCrosshair" />
-                      <span className="mapDebugLabel">sx:{Math.round(point.left)} sy:{Math.round(point.top)}</span>
-                      <span className="mapDebugLabel">ix:{anchor.x} iy:{anchor.y}</span>
-                    </div>
-                  )
-                })
-              : null}
           </div>
 
-          {placementMode && placementPoint ? (
+          {debugEnabled && mapping ? (
             <>
               <div
-                className="debugMarker"
+                className="mapDebugImageBounds"
                 style={{
-                  left: `${placementPoint.containerX}px`,
-                  top: `${placementPoint.containerY}px`,
-                  transform: 'translate(-50%, -50%)',
+                  left: mapping.offsetX,
+                  top: mapping.offsetY,
+                  width: mapping.drawnW,
+                  height: mapping.drawnH,
                 }}
               />
 
-              <div
-                className="debugTooltip debugTooltipPanel"
-                style={{
-                  left: `${placementPoint.containerX + 12}px`,
-                  top: `${placementPoint.containerY + 10}px`,
-                }}
-              >
-                <div>{`containerX: ${Math.round(placementPoint.containerX)}, containerY: ${Math.round(placementPoint.containerY)}`}</div>
-                <div>{`imageX: ${Math.round(placementPoint.imageX)}, imageY: ${Math.round(placementPoint.imageY)}`}</div>
-              </div>
+              {cappedLevels.map((level, index) => {
+                const point = screenPoints[index]
+                const anchor = NODE_ANCHORS.find((entry) => entry.level === level.levelNumber)
+                if (!point || !anchor) {
+                  return null
+                }
 
-              <div
-                className="debugAssignRow"
-                style={{
-                  left: `${placementPoint.containerX + 12}px`,
-                  top: `${placementPoint.containerY + 60}px`,
-                }}
-              >
-                {[1, 2, 3, 4].map((levelNumber) => (
-                  <button
-                    key={`set-level-${levelNumber}`}
-                    type="button"
-                    className="debugAssignButton"
-                    onClick={() => {
-                      setNodeAnchors((previous) =>
-                        previous.map((anchor) =>
-                          anchor.level === levelNumber
-                            ? {
-                                level: levelNumber,
-                                x: Math.round(placementPoint.imageX),
-                                y: Math.round(placementPoint.imageY),
-                              }
-                            : anchor,
-                        ),
-                      )
-                    }}
-                  >
-                    {`Set as Level ${levelNumber}`}
-                  </button>
-                ))}
+                return (
+                  <div key={`debug-point-${level.puzzleId}`} className="mapDebugMark" style={{ left: point.left, top: point.top }}>
+                    <span className="mapDebugCrosshair" />
+                    <span className="mapDebugLabel">{`L${level.levelNumber} ix:${anchor.x} iy:${anchor.y}`}</span>
+                    <span className="mapDebugLabel">{`sx:${Math.round(point.left)} sy:${Math.round(point.top)}`}</span>
+                  </div>
+                )
+              })}
+
+              {debugCapture ? (
+                <div
+                  className="debugTooltip"
+                  style={{
+                    left: debugCapture.containerX + 10,
+                    top: debugCapture.containerY + 10,
+                  }}
+                >
+                  <div>{`cx:${Math.round(debugCapture.containerX)} cy:${Math.round(debugCapture.containerY)}`}</div>
+                  <div>{`ix:${Math.round(debugCapture.imageX)} iy:${Math.round(debugCapture.imageY)}`}</div>
+                </div>
+              ) : null}
+
+              <div className="mapDebugPanel">
+                <div>{`container: ${Math.round(mapping.containerW)} x ${Math.round(mapping.containerH)}`}</div>
+                <div>{`natural: ${mapping.naturalW} x ${mapping.naturalH}`}</div>
+                <div>{`scale: ${mapping.scale.toFixed(4)}`}</div>
+                <div>{`offset: ${Math.round(mapping.offsetX)}, ${Math.round(mapping.offsetY)}`}</div>
+                <div>{`drawn: ${Math.round(mapping.drawnW)} x ${Math.round(mapping.drawnH)}`}</div>
+                <button
+                  type="button"
+                  className="mapDebugFitToggle"
+                  onClick={() => setDebugContainMode((previous) => !previous)}
+                >
+                  {debugContainMode ? 'Using contain (debug)' : 'Using cover (debug)'}
+                </button>
               </div>
             </>
           ) : null}
@@ -458,40 +466,17 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
             <Tooltip text={activeTooltip.text} x={activeTooltip.x} y={activeTooltip.y} placement={activeTooltip.placement} />
           ) : null}
 
-          {DEBUG_MAP && placementMode ? <div className="mapDebugBounds" aria-hidden="true" /> : null}
-
-          {DEBUG_MAP ? (
+          {DEBUG_AVAILABLE ? (
             <button
               type="button"
               className="debugButton"
               onClick={() => {
-                setPlacementMode((previous) => !previous)
-                setPlacementPoint(null)
+                setDebugEnabled((previous) => !previous)
+                setDebugCapture(null)
               }}
             >
-              ⚙️
+              Debug
             </button>
-          ) : null}
-
-          {DEBUG_MAP && placementMode ? (
-            <div className="debugPanel">
-              <button
-                type="button"
-                className="debugCopyButton"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(JSON.stringify(nodeAnchors, null, 2))
-                    setCopyStatus('Copied')
-                  } catch {
-                    setCopyStatus('Copy failed')
-                  }
-                }}
-              >
-                Copy Anchors
-              </button>
-              {copyStatus ? <span className="debugCopyStatus">{copyStatus}</span> : null}
-              <pre>{JSON.stringify(nodeAnchors, null, 2)}</pre>
-            </div>
           ) : null}
         </div>
       </div>
