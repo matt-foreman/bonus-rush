@@ -9,7 +9,7 @@ const IMAGE_WIDTH = 1024
 const IMAGE_HEIGHT = 1536
 const TOOLTIP_AUTO_CLOSE_MS = 2500
 const RESIZE_DEBOUNCE_MS = 100
-const DEBUG_MAP = false
+const DEBUG_MAP = true
 
 interface NodeAnchor {
   level: number
@@ -43,6 +43,13 @@ interface Sparkle {
   delay: string
 }
 
+interface PlacementPoint {
+  containerX: number
+  containerY: number
+  imageX: number
+  imageY: number
+}
+
 export interface LadderMapSceneLevel {
   puzzleId: string
   levelNumber: number
@@ -70,6 +77,22 @@ function imageToScreenPoint(containerRect: DOMRect, anchor: NodeAnchor): ScreenP
   }
 }
 
+function screenToImagePoint(containerRect: DOMRect, mouseX: number, mouseY: number): { imageX: number; imageY: number } {
+  const scale = Math.max(containerRect.width / IMAGE_WIDTH, containerRect.height / IMAGE_HEIGHT)
+  const drawnW = IMAGE_WIDTH * scale
+  const drawnH = IMAGE_HEIGHT * scale
+  const offsetX = (containerRect.width - drawnW) / 2
+  const offsetY = (containerRect.height - drawnH) / 2
+
+  const imageX = (mouseX - offsetX) / scale
+  const imageY = (mouseY - offsetY) / scale
+
+  return {
+    imageX: Math.max(0, Math.min(IMAGE_WIDTH, imageX)),
+    imageY: Math.max(0, Math.min(IMAGE_HEIGHT, imageY)),
+  }
+}
+
 function buildPathD(points: ScreenPoint[]): string {
   if (points.length === 0) {
     return ''
@@ -90,10 +113,14 @@ function buildPathD(points: ScreenPoint[]): string {
 
 export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
   const sceneRef = useRef<HTMLDivElement | null>(null)
+  const [nodeAnchors, setNodeAnchors] = useState<NodeAnchor[]>(NODE_ANCHORS)
+  const [placementMode, setPlacementMode] = useState(false)
+  const [placementPoint, setPlacementPoint] = useState<PlacementPoint | null>(null)
+  const [copyStatus, setCopyStatus] = useState('')
   const [screenPoints, setScreenPoints] = useState<ScreenPoint[]>([])
   const [activeTooltip, setActiveTooltip] = useState<ActiveTooltip | null>(null)
 
-  const cappedLevels = useMemo(() => levels.slice(0, NODE_ANCHORS.length), [levels])
+  const cappedLevels = useMemo(() => levels.slice(0, nodeAnchors.length), [levels, nodeAnchors.length])
   const sparkles = useMemo<Sparkle[]>(
     () =>
       Array.from({ length: 10 }).map((_, index) => ({
@@ -117,7 +144,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
         return
       }
 
-      const points = NODE_ANCHORS.slice(0, cappedLevels.length).map((anchor) => imageToScreenPoint(rect, anchor))
+      const points = nodeAnchors.slice(0, cappedLevels.length).map((anchor) => imageToScreenPoint(rect, anchor))
       setScreenPoints(points)
     }
 
@@ -149,7 +176,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
         window.clearTimeout(timeoutId)
       }
     }
-  }, [cappedLevels.length])
+  }, [cappedLevels.length, nodeAnchors])
 
   useEffect(() => {
     if (!activeTooltip) {
@@ -158,6 +185,14 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
     const timeout = window.setTimeout(() => setActiveTooltip(null), TOOLTIP_AUTO_CLOSE_MS)
     return () => window.clearTimeout(timeout)
   }, [activeTooltip])
+
+  useEffect(() => {
+    if (!copyStatus) {
+      return
+    }
+    const timeout = window.setTimeout(() => setCopyStatus(''), 1500)
+    return () => window.clearTimeout(timeout)
+  }, [copyStatus])
 
   useEffect(() => {
     if (!activeTooltip) {
@@ -196,6 +231,39 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
           className="mapSceneContent"
           style={{
             height: '100%',
+          }}
+          onClick={(event) => {
+            if (!placementMode) {
+              return
+            }
+
+            const target = event.target as HTMLElement
+            if (
+              target.closest('.mapNode') ||
+              target.closest('.debugButton') ||
+              target.closest('.debugTooltipPanel') ||
+              target.closest('.debugAssignRow') ||
+              target.closest('.debugPanel')
+            ) {
+              return
+            }
+
+            const container = sceneRef.current
+            if (!container) {
+              return
+            }
+
+            const rect = container.getBoundingClientRect()
+            const mouseX = event.clientX - rect.left
+            const mouseY = event.clientY - rect.top
+            const { imageX, imageY } = screenToImagePoint(rect, mouseX, mouseY)
+
+            setPlacementPoint({
+              containerX: mouseX,
+              containerY: mouseY,
+              imageX,
+              imageY,
+            })
           }}
         >
           <img className="mapBg" src={bonusRushMapWithLogo} alt="Bonus Rush Map" />
@@ -240,6 +308,9 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                   }}
                   aria-disabled={isLocked}
                   onClick={() => {
+                    if (placementMode) {
+                      return
+                    }
                     if (isLocked) {
                       setActiveTooltip({
                         text: getLockMessage(level.lockReason),
@@ -264,9 +335,9 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
               )
             })}
 
-            {DEBUG_MAP
+            {DEBUG_MAP && placementMode
               ? screenPoints.map((point, index) => {
-                  const anchor = NODE_ANCHORS[index]
+                  const anchor = nodeAnchors[index]
                   return (
                     <div key={`debug-${index}`} className="mapDebugMark" style={{ left: `${point.left}px`, top: `${point.top}px` }}>
                       <span className="mapDebugCrosshair" />
@@ -278,11 +349,100 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
               : null}
           </div>
 
+          {placementMode && placementPoint ? (
+            <>
+              <div
+                className="debugMarker"
+                style={{
+                  left: `${placementPoint.containerX}px`,
+                  top: `${placementPoint.containerY}px`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              />
+
+              <div
+                className="debugTooltip debugTooltipPanel"
+                style={{
+                  left: `${placementPoint.containerX + 12}px`,
+                  top: `${placementPoint.containerY + 10}px`,
+                }}
+              >
+                <div>{`containerX: ${Math.round(placementPoint.containerX)}, containerY: ${Math.round(placementPoint.containerY)}`}</div>
+                <div>{`imageX: ${Math.round(placementPoint.imageX)}, imageY: ${Math.round(placementPoint.imageY)}`}</div>
+              </div>
+
+              <div
+                className="debugAssignRow"
+                style={{
+                  left: `${placementPoint.containerX + 12}px`,
+                  top: `${placementPoint.containerY + 60}px`,
+                }}
+              >
+                {[1, 2, 3, 4].map((levelNumber) => (
+                  <button
+                    key={`set-level-${levelNumber}`}
+                    type="button"
+                    className="debugAssignButton"
+                    onClick={() => {
+                      setNodeAnchors((previous) =>
+                        previous.map((anchor) =>
+                          anchor.level === levelNumber
+                            ? {
+                                level: levelNumber,
+                                x: Math.round(placementPoint.imageX),
+                                y: Math.round(placementPoint.imageY),
+                              }
+                            : anchor,
+                        ),
+                      )
+                    }}
+                  >
+                    {`Set as Level ${levelNumber}`}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+
           {activeTooltip ? (
             <Tooltip text={activeTooltip.text} x={activeTooltip.x} y={activeTooltip.y} placement={activeTooltip.placement} />
           ) : null}
 
-          {DEBUG_MAP ? <div className="mapDebugBounds" aria-hidden="true" /> : null}
+          {DEBUG_MAP && placementMode ? <div className="mapDebugBounds" aria-hidden="true" /> : null}
+
+          {DEBUG_MAP ? (
+            <button
+              type="button"
+              className="debugButton"
+              onClick={() => {
+                setPlacementMode((previous) => !previous)
+                setPlacementPoint(null)
+              }}
+            >
+              ⚙️
+            </button>
+          ) : null}
+
+          {DEBUG_MAP && placementMode ? (
+            <div className="debugPanel">
+              <button
+                type="button"
+                className="debugCopyButton"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(JSON.stringify(nodeAnchors, null, 2))
+                    setCopyStatus('Copied')
+                  } catch {
+                    setCopyStatus('Copy failed')
+                  }
+                }}
+              >
+                Copy Anchors
+              </button>
+              {copyStatus ? <span className="debugCopyStatus">{copyStatus}</span> : null}
+              <pre>{JSON.stringify(nodeAnchors, null, 2)}</pre>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
