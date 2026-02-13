@@ -182,12 +182,58 @@ p {
 }
 
 .ladder-header {
-  padding: 1.05rem 1.2rem;
+  position: relative;
+  padding: 0.8rem 1rem 0.7rem;
+  text-align: center;
 }
 
 .ladder-header p {
-  margin: 0.35rem 0 0;
+  margin: 0.2rem 0 0;
   font-weight: 600;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.ladder-title-wrap {
+  display: grid;
+  place-items: center;
+  min-height: 58px;
+  padding-inline: 4.6rem;
+}
+
+.ladder-title-image {
+  width: min(92%, 320px);
+  max-height: 82px;
+  object-fit: contain;
+  display: block;
+}
+
+.ladder-title-fallback {
+  font-size: clamp(2rem, 7vw, 2.6rem);
+  line-height: 0.95;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #f8f6ef;
+  text-shadow:
+    0 2px 0 #7f4e27,
+    0 4px 0 #6d4120,
+    0 8px 16px #2a1a102f;
+}
+
+.ladder-coin-pill {
+  position: absolute;
+  top: 0.62rem;
+  right: 0.68rem;
 }
 
 .ladder-scroll {
@@ -650,6 +696,7 @@ p {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  justify-content: center;
 }
 
 .inventory-chip {
@@ -662,11 +709,55 @@ p {
   font-weight: 800;
 }
 
+.coin-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  border-radius: 999px;
+  padding: 0.22rem 0.58rem 0.22rem 0.32rem;
+  border: 1px solid #d3b56e;
+  background:
+    linear-gradient(180deg, #ffffff8f 0%, #ffffff00 45%),
+    linear-gradient(180deg, #f6e2a5 0%, #e8c872 58%, #c99a3d 100%);
+  box-shadow:
+    inset 0 1px 0 #ffffffa4,
+    0 3px 9px #7f5f2d33;
+}
+
+.coin-pill-icon {
+  width: 1.14rem;
+  height: 1.14rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #b98830;
+  background:
+    linear-gradient(180deg, #fff4cd 0%, #eec15f 70%, #ce9634 100%);
+  box-shadow:
+    inset 0 1px 0 #fff9de,
+    0 2px 4px #77561e30;
+}
+
+.coin-pill-icon-core {
+  font-size: 0.66rem;
+  font-weight: 900;
+  color: #754b12;
+  transform: translateY(-0.01rem);
+}
+
+.coin-pill-value {
+  font-size: 0.83rem;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: #5f3f12;
+}
+
 .header-controls {
   display: inline-flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.45rem;
+  justify-content: center;
 }
 
 .demo-badge {
@@ -696,6 +787,59 @@ p {
   border-color: #d0b058;
   color: #6c5518;
   background: linear-gradient(180deg, #fff0b7, #f2da7f);
+}
+
+.demo-mode-fab-wrap {
+  position: fixed;
+  left: max(0.8rem, env(safe-area-inset-left));
+  bottom: max(0.9rem, calc(env(safe-area-inset-bottom) + 0.55rem));
+  pointer-events: none;
+  z-index: 20;
+}
+
+.demo-mode-fab {
+  width: 75px;
+  height: 75px;
+  border: none;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #a442ff 0%, #7a1fe0 100%);
+  box-shadow:
+    inset 0 1px 0 #ffffff66,
+    0 12px 22px #45127a44;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 130ms ease, filter 180ms ease;
+}
+
+.demo-mode-fab:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.demo-mode-fab-letter {
+  font-size: 2.25rem;
+  line-height: 1;
+  font-weight: 900;
+  color: #ff82db;
+  text-shadow:
+    0 1px 0 #ffffff85,
+    0 2px 6px #6e2fb2;
+}
+
+.demo-mode-indicator {
+  position: absolute;
+  top: -0.35rem;
+  left: 0.3rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.44rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #fff2fd;
+  background: #8b2adc;
+  border: 1px solid #d68dff;
+  box-shadow: 0 4px 10px #53158f3f;
 }
 
 .tier-accent-bronze {
@@ -904,8 +1048,21 @@ p {
     max-width: 100%;
   }
 
+  .ladder-title-wrap {
+    padding-inline: 3.9rem;
+  }
+
+  .ladder-coin-pill {
+    top: 0.5rem;
+    right: 0.54rem;
+  }
+
   .results-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .demo-mode-fab {
+    border-radius: 20px;
   }
 }

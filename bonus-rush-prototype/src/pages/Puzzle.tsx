@@ -10,7 +10,7 @@ import {
   WordWheel,
 } from '../components'
 import { bonusRushPuzzles } from '../data/bonusRush'
-import { getInventory, isDemoModeEnabled, isTierUnlocked, recordRun, type Inventory, updateInventory } from '../state/storage'
+import { getInventory, isTierUnlocked, recordRun, type Inventory, updateInventory } from '../state/storage'
 import type { TierConfig, TierName } from '../types/bonusRush'
 import { findMatchingSlot, placeWord } from '../utils/crossword'
 import { isAllowedWord, isValidWord, normalizeWord } from '../utils/wordGame'
@@ -92,7 +92,6 @@ export function Puzzle() {
   const [iapUsed, setIapUsed] = useState(false)
   const [showTimeExpiredModal, setShowTimeExpiredModal] = useState(false)
   const [feedback, setFeedback] = useState('')
-  const demoMode = useMemo(() => isDemoModeEnabled(), [])
 
   const tierConfig = puzzle?.tiers[activeTier]
 
@@ -276,7 +275,6 @@ export function Puzzle() {
       <header className="puzzle-header">
         <SecondaryButton onClick={() => navigate('/')}>Back</SecondaryButton>
         <TierBadge tier={activeTier} />
-        {demoMode ? <span className="demo-badge">Demo Mode</span> : null}
         <span className="timer-pill" aria-label="Timer">
           {formatTimer(secondsLeft)}
         </span>

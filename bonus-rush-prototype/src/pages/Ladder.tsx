@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CoinPill, DemoModeButton } from '../components'
 import { LadderMap, type LadderMapLevel, type LadderNodeState } from '../components/LadderMap'
 import { bonusRushPuzzles } from '../data/bonusRush'
 import {
@@ -32,8 +33,9 @@ function resolveNodeState(puzzleId: string, progress: ReturnType<typeof getProgr
 export function Ladder() {
   const navigate = useNavigate()
   const [demoMode, setDemoMode] = useState(() => isDemoModeEnabled())
-  const progress = useMemo(() => getProgress(), [])
-  const inventory = useMemo(() => getInventory(), [])
+  const [showTitleFallback, setShowTitleFallback] = useState(false)
+  const progress = useMemo(() => getProgress(), [demoMode])
+  const inventory = useMemo(() => getInventory(), [demoMode])
   const levels = useMemo<LadderMapLevel[]>(
     () =>
       bonusRushPuzzles.map((puzzle, index) => {
@@ -56,30 +58,35 @@ export function Ladder() {
   return (
     <section className="ladder-page">
       <header className="card ladder-header">
-        <h1>Bonus Rush</h1>
+        <h1 className="sr-only">Bonus Rush</h1>
+        <div className="ladder-title-wrap" aria-hidden="true">
+          {showTitleFallback ? (
+            <span className="ladder-title-fallback">
+              {/* TODO: Swap this fallback text lockup with final production title image asset. */}
+              Bonus Rush
+            </span>
+          ) : (
+            <img
+              className="ladder-title-image"
+              src="/inspiration/title-example.jpg"
+              alt=""
+              onError={() => setShowTitleFallback(true)}
+            />
+          )}
+        </div>
         <p>New puzzles every week</p>
-        <div className="header-controls">
-          {demoMode ? <span className="demo-badge">Demo Mode</span> : null}
-          <button
-            type="button"
-            className={`demo-toggle ${demoMode ? 'active' : ''}`}
-            onClick={() => {
-              const next = !demoMode
-              setDemoModeEnabled(next)
-              setDemoMode(next)
-              window.location.reload()
-            }}
-          >
-            Demo Mode: {demoMode ? 'On' : 'Off'}
-          </button>
-        </div>
-        <div className="inventory-strip" aria-label="Inventory">
-          <span className="inventory-chip">Coins: {inventory.coins}</span>
-          <span className="inventory-chip">Hints: {inventory.hints}</span>
-        </div>
+        <CoinPill className="ladder-coin-pill" coins={inventory.coins} />
       </header>
 
       <LadderMap levels={levels} onSelectLevel={(puzzleId) => navigate(`/puzzle/${puzzleId}?tier=Bronze`)} />
+      <DemoModeButton
+        enabled={demoMode}
+        onToggle={() => {
+          const next = !demoMode
+          setDemoModeEnabled(next)
+          setDemoMode(next)
+        }}
+      />
     </section>
   )
 }

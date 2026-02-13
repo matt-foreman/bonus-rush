@@ -1,6 +1,8 @@
 export { BonusCounter } from './BonusCounter'
 export { PrimaryButton, SecondaryButton } from './Buttons'
+export { CoinPill } from './CoinPill'
 export { CrosswordGrid } from './CrosswordGrid'
+export { DemoModeButton } from './DemoModeButton'
 export { MedalBadge } from './MedalBadge'
 export { StarsRow } from './StarsRow'
 export { TierBadge } from './TierBadge'

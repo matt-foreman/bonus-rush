@@ -5,7 +5,6 @@ import { bonusRushPuzzles } from '../data/bonusRush'
 import {
   getInventory,
   getProgress,
-  isDemoModeEnabled,
   isPuzzleUnlocked,
   recordRun,
   type Inventory,
@@ -108,7 +107,6 @@ export function Results() {
   const navigate = useNavigate()
   const { puzzleId } = useParams<{ puzzleId: string }>()
   const [searchParams] = useSearchParams()
-  const demoMode = useMemo(() => isDemoModeEnabled(), [])
 
   const puzzle = useMemo(() => bonusRushPuzzles.find((entry) => entry.id === puzzleId), [puzzleId])
   const tier = useMemo<TierName>(() => {
@@ -199,7 +197,6 @@ export function Results() {
     <section className="results-page card page">
       <header className="results-header">
         <h2>Run Complete</h2>
-        {demoMode ? <span className="demo-badge">Demo Mode</span> : null}
         <TierBadge tier={tier} />
       </header>
 
