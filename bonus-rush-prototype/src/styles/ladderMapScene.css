@@ -320,6 +320,139 @@
   z-index: 5;
 }
 
+.mapPlacementToggle {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  border: 1px solid #d3c8ea;
+  background: linear-gradient(180deg, #ffffffeb 0%, #ebe5f8eb 100%);
+  color: #5b3386;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 700;
+  z-index: 7;
+  cursor: pointer;
+  box-shadow: 0 5px 14px #1d2d2e30;
+}
+
+.mapPlacementToggle.is-active {
+  background: linear-gradient(180deg, #f2e7ff 0%, #dfcdfc 100%);
+  border-color: #b89ee4;
+}
+
+.mapPlacementPanel {
+  position: absolute;
+  right: 0.7rem;
+  top: 0.7rem;
+  width: min(245px, calc(100% - 1.4rem));
+  border-radius: 14px;
+  background: #ffffffde;
+  border: 1px solid #dacce9;
+  box-shadow: 0 10px 20px #21273c2b;
+  z-index: 7;
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.42rem;
+}
+
+.mapPlacementTitle {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #4d3468;
+  letter-spacing: 0.03em;
+}
+
+.mapPlacementActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.34rem;
+}
+
+.mapPlacementAction {
+  border-radius: 9px;
+  border: 1px solid #cebfdf;
+  background: #fcfbff;
+  color: #503371;
+  font-size: 0.67rem;
+  font-weight: 700;
+  padding: 0.3rem 0.4rem;
+  cursor: pointer;
+}
+
+.mapPlacementAction:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mapPlacementCopy {
+  border-radius: 10px;
+  border: 1px solid #bca1dd;
+  background: linear-gradient(180deg, #f5ebff 0%, #e8d8fa 100%);
+  color: #56367a;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.36rem 0.45rem;
+  cursor: pointer;
+}
+
+.mapPlacementFeedback {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #4d3468;
+}
+
+.mapPlacementAnchors {
+  border-top: 1px solid #dfd5e9;
+  padding-top: 0.42rem;
+  display: grid;
+  gap: 0.22rem;
+}
+
+.mapPlacementAnchorRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #4d3468;
+}
+
+.mapPlacementMarker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  pointer-events: none;
+}
+
+.mapPlacementMarkerDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ff4ca8;
+  box-shadow:
+    0 0 0 2px #ffffffd4,
+    0 0 0 8px #ff4ca82b;
+  display: block;
+}
+
+.mapPlacementTooltip {
+  margin-top: 0.3rem;
+  margin-left: 0.42rem;
+  display: grid;
+  gap: 0.08rem;
+  padding: 0.26rem 0.38rem;
+  border-radius: 8px;
+  border: 1px solid #d9caea;
+  background: #ffffffed;
+  color: #472d66;
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .mapSceneHost.single {
     height: calc(100vh - var(--ladder-header-height) - 2.3rem);
