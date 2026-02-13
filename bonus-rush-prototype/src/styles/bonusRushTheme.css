@@ -1,0 +1,22 @@
+:root {
+  --br-primary: #2f6d53;
+  --br-secondary: #5f8a72;
+  --br-accent: #f0c56f;
+
+  --br-bg-gradient-top: #edf6ff;
+  --br-bg-gradient-mid: #dcefe8;
+  --br-bg-gradient-bottom: #c8dfbf;
+
+  --br-path-line: #86ad96;
+
+  --br-node-fill: #fffaf0;
+  --br-node-border: #d4c7ab;
+  --br-node-shadow: 0 10px 24px #2f5d4424;
+
+  --br-tooltip-bg: #264c3a;
+  --br-tooltip-text: #f2fbf6;
+
+  --br-medal-bronze: #ce9b62;
+  --br-medal-silver: #b5c5d7;
+  --br-medal-gold: #e1c66b;
+}

@@ -1,0 +1,37 @@
+.ladder-map-surface {
+  background: linear-gradient(180deg, var(--br-bg-gradient-top) 0%, var(--br-bg-gradient-mid) 52%, var(--br-bg-gradient-bottom) 100%);
+}
+
+.ladder-map-path {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--br-path-line) 78%, #ffffff) 0%, var(--br-path-line) 100%);
+}
+
+.ladder-node-base {
+  background: var(--br-node-fill);
+  border: 1px solid var(--br-node-border);
+  box-shadow: var(--br-node-shadow);
+}
+
+.ladder-node-tooltip {
+  background: var(--br-tooltip-bg);
+  color: var(--br-tooltip-text);
+}
+
+.ladder-medal {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.ladder-medal-bronze {
+  background: var(--br-medal-bronze);
+}
+
+.ladder-medal-silver {
+  background: var(--br-medal-silver);
+}
+
+.ladder-medal-gold {
+  background: var(--br-medal-gold);
+}

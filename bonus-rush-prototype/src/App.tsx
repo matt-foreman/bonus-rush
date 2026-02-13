@@ -2,6 +2,9 @@ import { Route, Routes } from 'react-router-dom'
 import { Ladder } from './pages/Ladder'
 import { Puzzle } from './pages/Puzzle'
 import { Results } from './pages/Results'
+import './styles/bonusRushTheme.css'
+import './styles/ladderMap.css'
+import './styles/theme.css'
 
 export default function App() {
   return (

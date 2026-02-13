@@ -1,11 +1,12 @@
 :root {
-  --sky-top: #eef8ff;
-  --sky-bottom: #d9f0ff;
+  --sky-top: var(--br-bg-gradient-top);
+  --sky-bottom: var(--br-bg-gradient-mid);
+  --ground-bottom: var(--br-bg-gradient-bottom);
   --mist: #ffffffcc;
-  --pine: #2f5f47;
-  --forest: #1f4a35;
-  --card: #fffdf7;
-  --card-border: #d8cdb4;
+  --pine: var(--br-secondary);
+  --forest: var(--br-primary);
+  --card: var(--br-node-fill);
+  --card-border: var(--br-node-border);
   --wood-light: #e2b57a;
   --wood-mid: #c2894b;
   --wood-dark: #8d5a2e;
@@ -25,7 +26,7 @@ body {
   background:
     radial-gradient(circle at 20% 20%, #ffffff85 0, #ffffff00 40%),
     radial-gradient(circle at 80% 0%, #ffffff88 0, #ffffff00 30%),
-    linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 45%, #c8e3bb 100%);
+    linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 45%, var(--ground-bottom) 100%);
 }
 
 #root {
@@ -49,7 +50,7 @@ body {
   border: 1px solid var(--card-border);
   background: linear-gradient(180deg, #fffefb 0%, var(--card) 70%);
   box-shadow:
-    0 10px 30px #4f8f6f22,
+    var(--br-node-shadow),
     inset 0 1px 0 #ffffff;
 }
 
@@ -205,22 +206,27 @@ p {
   left: 1.7rem;
   width: 4px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #bdd8c7 0%, #8bb497 55%, #6b9e80 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--br-path-line) 65%, #ffffff) 0%,
+    var(--br-path-line) 55%,
+    color-mix(in srgb, var(--br-path-line) 75%, #243b2e) 100%
+  );
   opacity: 0.5;
 }
 
 .puzzle-node {
   position: relative;
   z-index: 1;
-  border: 1px solid #d4ccb6;
+  border: 1px solid var(--br-node-border);
   border-radius: 18px;
-  background: #fffef9;
+  background: var(--br-node-fill);
   text-align: left;
   padding: 0.85rem 0.85rem 0.8rem;
   margin-left: 0.95rem;
   display: grid;
   gap: 0.7rem;
-  box-shadow: 0 8px 18px #4f8f6f1f;
+  box-shadow: var(--br-node-shadow);
   cursor: pointer;
 }
 
@@ -328,20 +334,20 @@ p {
 
 .tier-badge-bronze {
   color: #7f4d22;
-  background: #f4dfc7;
-  border: 1px solid #dbbc93;
+  background: color-mix(in srgb, var(--br-medal-bronze) 36%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--br-medal-bronze) 70%, #80614c);
 }
 
 .tier-badge-silver {
   color: #4d5f70;
-  background: #e8eef5;
-  border: 1px solid #ccd7e2;
+  background: color-mix(in srgb, var(--br-medal-silver) 36%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--br-medal-silver) 74%, #687788);
 }
 
 .tier-badge-gold {
   color: #7a5b16;
-  background: #f8efc4;
-  border: 1px solid #e6d485;
+  background: color-mix(in srgb, var(--br-medal-gold) 38%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--br-medal-gold) 72%, #7e6c33);
 }
 
 .stars-row {
@@ -509,8 +515,8 @@ p {
 
 .btn-primary {
   color: #fff;
-  background: linear-gradient(180deg, #4b8c6c, #31634a);
-  box-shadow: 0 4px 12px #2050382f;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--br-primary) 85%, #ffffff), var(--br-primary));
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--br-primary) 36%, #00000000);
 }
 
 .btn-secondary {
@@ -559,7 +565,7 @@ p {
 }
 
 .tier-tab.active {
-  border-color: #2f6248;
+  border-color: var(--br-primary);
   color: #fff;
 }
 
@@ -648,9 +654,9 @@ p {
 
 .inventory-chip {
   border-radius: 999px;
-  border: 1px solid #c4d6ca;
-  background: #f1f8f4;
-  color: #2a5643;
+  border: 1px solid color-mix(in srgb, var(--br-primary) 24%, #ffffff);
+  background: color-mix(in srgb, var(--br-primary) 10%, #ffffff);
+  color: color-mix(in srgb, var(--br-primary) 86%, #1a2f25);
   padding: 0.26rem 0.58rem;
   font-size: 0.78rem;
   font-weight: 800;
@@ -671,8 +677,8 @@ p {
   font-size: 0.73rem;
   font-weight: 900;
   color: #5f4b14;
-  border: 1px solid #dbc36e;
-  background: linear-gradient(180deg, #fff0b7, #f2da7f);
+  border: 1px solid color-mix(in srgb, var(--br-medal-gold) 78%, #8a7738);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--br-medal-gold) 44%, #ffffff), var(--br-medal-gold));
 }
 
 .demo-toggle {
