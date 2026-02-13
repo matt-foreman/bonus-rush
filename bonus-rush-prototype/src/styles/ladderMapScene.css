@@ -400,40 +400,101 @@
   z-index: 7;
 }
 
-.debugTooltip {
+.debugMarker {
   position: absolute;
-  background: rgb(0 0 0 / 72%);
-  color: #fff;
-  padding: 8px;
-  border-radius: 6px;
-  font-size: 12px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffec58;
+  box-shadow: 0 0 0 2px #261d00b3;
+  transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 10;
 }
 
-.mapDebugPanel {
+.debugPlacementCard {
   position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: 10;
-  width: min(280px, calc(100% - 92px));
-  background: rgb(0 0 0 / 66%);
+  z-index: 11;
+  background: rgb(0 0 0 / 76%);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12px;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.debugAssignRow {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.debugAssignButton {
+  border: 1px solid #c8b8e6;
+  background: #f3eaff;
+  color: #312247;
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.debugControls {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 12;
+  display: grid;
+  justify-items: end;
+  gap: 0.45rem;
+}
+
+.debugPlacementToggle {
+  min-width: 128px;
+}
+
+.debugPlacementToggle.is-active {
+  border-color: #f2d26f;
+  background: rgb(82 66 17 / 72%);
+}
+
+.mapDebugPanel {
+  width: min(300px, calc(100vw - 40px));
+  background: rgb(0 0 0 / 76%);
   color: #fff;
   border-radius: 8px;
   padding: 8px;
   display: grid;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 
-.mapDebugFitToggle {
-  border: 0;
-  border-radius: 7px;
+.mapDebugStats {
+  font-size: 11px;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.mapDebugPanel pre {
+  margin: 0;
+  max-height: 140px;
+  overflow: auto;
+  font-size: 11px;
+}
+
+.debugCopyButton {
+  border: 1px solid #c8b8e6;
   background: #f3eaff;
-  color: #312247;
+  color: #3f265f;
+  border-radius: 7px;
+  padding: 5px 8px;
   font-size: 12px;
   font-weight: 700;
-  padding: 6px 8px;
   cursor: pointer;
+}
+
+.debugCopyStatus {
+  font-size: 11px;
 }
 
 @media (max-width: 640px) {

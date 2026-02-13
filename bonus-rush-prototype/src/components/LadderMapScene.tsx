@@ -8,6 +8,7 @@ import { Tooltip } from './Tooltip'
 const TOOLTIP_AUTO_CLOSE_MS = 2500
 const RESIZE_DEBOUNCE_MS = 100
 const DEBUG_AVAILABLE = import.meta.env.DEV
+const DEBUG_STORAGE_KEY = 'bonusRush.debugAnchors'
 
 interface NodeAnchor {
   level: number
@@ -53,12 +54,14 @@ interface MappingParams {
   offsetY: number
 }
 
-interface DebugCapture {
-  containerX: number
-  containerY: number
+interface SelectedPoint {
+  cx: number
+  cy: number
   imageX: number
   imageY: number
 }
+
+type DraftAnchors = Record<number, { x: number; y: number }>
 
 export interface LadderMapSceneLevel {
   puzzleId: string
@@ -74,18 +77,8 @@ interface LadderMapSceneProps {
   onSelectLevel: (puzzleId: string) => void
 }
 
-function buildMappingParams(
-  containerW: number,
-  containerH: number,
-  naturalW: number,
-  naturalH: number,
-  fitMode: 'cover' | 'contain',
-): MappingParams {
-  const scale =
-    fitMode === 'cover'
-      ? Math.max(containerW / naturalW, containerH / naturalH)
-      : Math.min(containerW / naturalW, containerH / naturalH)
-
+function buildMappingParams(containerW: number, containerH: number, naturalW: number, naturalH: number): MappingParams {
+  const scale = Math.max(containerW / naturalW, containerH / naturalH)
   const drawnW = naturalW * scale
   const drawnH = naturalH * scale
   const offsetX = (containerW - drawnW) / 2
@@ -139,13 +132,84 @@ function buildPathD(points: ScreenPoint[]): string {
   return d
 }
 
+function buildDefaultDraftAnchors(): DraftAnchors {
+  return NODE_ANCHORS.reduce<DraftAnchors>((acc, anchor) => {
+    acc[anchor.level] = { x: anchor.x, y: anchor.y }
+    return acc
+  }, {})
+}
+
+function normalizeDraftAnchors(input: unknown): DraftAnchors {
+  const defaults = buildDefaultDraftAnchors()
+
+  if (!input || typeof input !== 'object') {
+    return defaults
+  }
+
+  if (Array.isArray(input)) {
+    const next = { ...defaults }
+    for (const entry of input) {
+      if (
+        entry &&
+        typeof entry === 'object' &&
+        'level' in entry &&
+        'x' in entry &&
+        'y' in entry &&
+        typeof entry.level === 'number' &&
+        typeof entry.x === 'number' &&
+        typeof entry.y === 'number' &&
+        entry.level >= 1 &&
+        entry.level <= 4
+      ) {
+        next[entry.level] = { x: Math.round(entry.x), y: Math.round(entry.y) }
+      }
+    }
+    return next
+  }
+
+  const next = { ...defaults }
+  for (const level of [1, 2, 3, 4]) {
+    const maybe = (input as Record<number, { x?: unknown; y?: unknown }>)[level]
+    if (maybe && typeof maybe.x === 'number' && typeof maybe.y === 'number') {
+      next[level] = { x: Math.round(maybe.x), y: Math.round(maybe.y) }
+    }
+  }
+  return next
+}
+
+function loadDraftAnchors(): DraftAnchors {
+  if (typeof window === 'undefined') {
+    return buildDefaultDraftAnchors()
+  }
+
+  try {
+    const raw = window.localStorage.getItem(DEBUG_STORAGE_KEY)
+    if (!raw) {
+      return buildDefaultDraftAnchors()
+    }
+    return normalizeDraftAnchors(JSON.parse(raw))
+  } catch {
+    return buildDefaultDraftAnchors()
+  }
+}
+
+function anchorsToArray(draft: DraftAnchors): NodeAnchor[] {
+  return [1, 2, 3, 4].map((level) => ({
+    level,
+    x: draft[level].x,
+    y: draft[level].y,
+  }))
+}
+
 export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
 
   const [debugEnabled, setDebugEnabled] = useState(false)
-  const [debugContainMode, setDebugContainMode] = useState(false)
-  const [debugCapture, setDebugCapture] = useState<DebugCapture | null>(null)
+  const [placementMode, setPlacementMode] = useState(false)
+  const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(null)
+  const [draftAnchors, setDraftAnchors] = useState<DraftAnchors>(() => loadDraftAnchors())
+  const [copyStatus, setCopyStatus] = useState('')
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null)
   const [screenPoints, setScreenPoints] = useState<ScreenPoint[]>([])
@@ -167,15 +231,15 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
     if (!naturalSize || containerSize.width <= 0 || containerSize.height <= 0) {
       return null
     }
+    return buildMappingParams(containerSize.width, containerSize.height, naturalSize.width, naturalSize.height)
+  }, [containerSize, naturalSize])
 
-    return buildMappingParams(
-      containerSize.width,
-      containerSize.height,
-      naturalSize.width,
-      naturalSize.height,
-      debugEnabled && debugContainMode ? 'contain' : 'cover',
-    )
-  }, [containerSize, naturalSize, debugEnabled, debugContainMode])
+  const anchorByLevel = useMemo(() => {
+    const entries = NODE_ANCHORS.map((anchor) => [anchor.level, anchor] as const)
+    return Object.fromEntries(entries) as Record<number, NodeAnchor>
+  }, [])
+
+  const draftAnchorArray = useMemo(() => anchorsToArray(draftAnchors), [draftAnchors])
 
   useEffect(() => {
     const imageEl = imgRef.current
@@ -242,7 +306,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
     }
 
     const points = cappedLevels.map((level) => {
-      const anchor = NODE_ANCHORS.find((entry) => entry.level === level.levelNumber)
+      const anchor = anchorByLevel[level.levelNumber]
       if (!anchor) {
         return { left: mapping.containerW / 2, top: mapping.containerH / 2 }
       }
@@ -250,7 +314,15 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
     })
 
     setScreenPoints(points)
-  }, [mapping, cappedLevels])
+  }, [mapping, cappedLevels, anchorByLevel])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    window.localStorage.setItem(DEBUG_STORAGE_KEY, JSON.stringify(draftAnchorArray))
+  }, [draftAnchorArray])
 
   useEffect(() => {
     if (!activeTooltip) {
@@ -280,6 +352,14 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
     return () => document.removeEventListener('pointerdown', onPointerDown)
   }, [activeTooltip])
 
+  useEffect(() => {
+    if (!copyStatus) {
+      return
+    }
+    const timeout = window.setTimeout(() => setCopyStatus(''), 1200)
+    return () => window.clearTimeout(timeout)
+  }, [copyStatus])
+
   const getLockMessage = (reason: LockedReason | null): string => {
     if (reason === LockedReason.WeeklyUnlock) {
       return 'Coming next week'
@@ -299,12 +379,12 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
             height: '100%',
           }}
           onClick={(event) => {
-            if (!debugEnabled || !mapping) {
+            if (!placementMode || !mapping) {
               return
             }
 
             const target = event.target as HTMLElement
-            if (target.closest('.mapNode') || target.closest('.debugButton') || target.closest('.mapDebugPanel')) {
+            if (target.closest('.debugControls') || target.closest('.debugPlacementCard')) {
               return
             }
 
@@ -315,13 +395,13 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
 
             const cx = event.clientX - rect.left
             const cy = event.clientY - rect.top
-            const { imageX, imageY } = screenToImage(mapping, cx, cy)
+            const image = screenToImage(mapping, cx, cy)
 
-            setDebugCapture({
-              containerX: cx,
-              containerY: cy,
-              imageX,
-              imageY,
+            setSelectedPoint({
+              cx,
+              cy,
+              imageX: Math.round(image.imageX),
+              imageY: Math.round(image.imageY),
             })
           }}
         >
@@ -330,7 +410,6 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
             className="mapBg"
             src={bonusRushMapWithLogo}
             alt="Bonus Rush Map"
-            style={{ objectFit: debugEnabled && debugContainMode ? 'contain' : 'cover', objectPosition: 'center' }}
             onLoad={(event) => {
               setNaturalSize({
                 width: event.currentTarget.naturalWidth,
@@ -379,6 +458,10 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                   }}
                   aria-disabled={isLocked}
                   onClick={() => {
+                    if (placementMode) {
+                      return
+                    }
+
                     if (isLocked) {
                       setActiveTooltip({
                         text: getLockMessage(level.lockReason),
@@ -416,67 +499,125 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                 }}
               />
 
-              {cappedLevels.map((level, index) => {
-                const point = screenPoints[index]
-                const anchor = NODE_ANCHORS.find((entry) => entry.level === level.levelNumber)
-                if (!point || !anchor) {
-                  return null
-                }
-
+              {draftAnchorArray.map((anchor) => {
+                const point = imageToScreen(mapping, anchor.x, anchor.y)
                 return (
-                  <div key={`debug-point-${level.puzzleId}`} className="mapDebugMark" style={{ left: point.left, top: point.top }}>
+                  <div key={`debug-point-${anchor.level}`} className="mapDebugMark" style={{ left: point.left, top: point.top }}>
                     <span className="mapDebugCrosshair" />
-                    <span className="mapDebugLabel">{`L${level.levelNumber} ix:${anchor.x} iy:${anchor.y}`}</span>
+                    <span className="mapDebugLabel">{`L${anchor.level} ix:${anchor.x} iy:${anchor.y}`}</span>
                     <span className="mapDebugLabel">{`sx:${Math.round(point.left)} sy:${Math.round(point.top)}`}</span>
                   </div>
                 )
               })}
+            </>
+          ) : null}
 
-              {debugCapture ? (
-                <div
-                  className="debugTooltip"
-                  style={{
-                    left: debugCapture.containerX + 10,
-                    top: debugCapture.containerY + 10,
-                  }}
-                >
-                  <div>{`cx:${Math.round(debugCapture.containerX)} cy:${Math.round(debugCapture.containerY)}`}</div>
-                  <div>{`ix:${Math.round(debugCapture.imageX)} iy:${Math.round(debugCapture.imageY)}`}</div>
+          {placementMode && selectedPoint ? (
+            <>
+              <div
+                className="debugMarker"
+                style={{
+                  left: selectedPoint.cx,
+                  top: selectedPoint.cy,
+                }}
+              />
+              <div
+                className="debugPlacementCard"
+                style={{
+                  left: selectedPoint.cx + 10,
+                  top: selectedPoint.cy + 10,
+                }}
+              >
+                <div>{`imageX: ${selectedPoint.imageX}`}</div>
+                <div>{`imageY: ${selectedPoint.imageY}`}</div>
+                <div className="debugAssignRow">
+                  {[1, 2, 3, 4].map((level) => (
+                    <button
+                      key={`assign-${level}`}
+                      type="button"
+                      className="debugAssignButton"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setDraftAnchors((previous) => ({
+                          ...previous,
+                          [level]: { x: selectedPoint.imageX, y: selectedPoint.imageY },
+                        }))
+                      }}
+                    >
+                      {`L${level}`}
+                    </button>
+                  ))}
                 </div>
-              ) : null}
-
-              <div className="mapDebugPanel">
-                <div>{`container: ${Math.round(mapping.containerW)} x ${Math.round(mapping.containerH)}`}</div>
-                <div>{`natural: ${mapping.naturalW} x ${mapping.naturalH}`}</div>
-                <div>{`scale: ${mapping.scale.toFixed(4)}`}</div>
-                <div>{`offset: ${Math.round(mapping.offsetX)}, ${Math.round(mapping.offsetY)}`}</div>
-                <div>{`drawn: ${Math.round(mapping.drawnW)} x ${Math.round(mapping.drawnH)}`}</div>
-                <button
-                  type="button"
-                  className="mapDebugFitToggle"
-                  onClick={() => setDebugContainMode((previous) => !previous)}
-                >
-                  {debugContainMode ? 'Using contain (debug)' : 'Using cover (debug)'}
-                </button>
               </div>
             </>
           ) : null}
 
-          {activeTooltip ? (
+          {activeTooltip && !placementMode ? (
             <Tooltip text={activeTooltip.text} x={activeTooltip.x} y={activeTooltip.y} placement={activeTooltip.placement} />
           ) : null}
 
           {DEBUG_AVAILABLE ? (
-            <button
-              type="button"
-              className="debugButton"
-              onClick={() => {
-                setDebugEnabled((previous) => !previous)
-                setDebugCapture(null)
-              }}
-            >
-              Debug
-            </button>
+            <div className="debugControls">
+              <button
+                type="button"
+                className="debugButton"
+                onClick={() => {
+                  setDebugEnabled((previous) => {
+                    const next = !previous
+                    if (!next) {
+                      setPlacementMode(false)
+                      setSelectedPoint(null)
+                    }
+                    return next
+                  })
+                }}
+              >
+                Debug
+              </button>
+
+              {debugEnabled ? (
+                <>
+                  <button
+                    type="button"
+                    className={`debugButton debugPlacementToggle ${placementMode ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setPlacementMode((previous) => !previous)
+                      setSelectedPoint(null)
+                    }}
+                  >
+                    Placement Mode
+                  </button>
+
+                  <div className="mapDebugPanel">
+                    <button
+                      type="button"
+                      className="debugCopyButton"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(JSON.stringify(draftAnchorArray, null, 2))
+                          setCopyStatus('Copied')
+                        } catch {
+                          setCopyStatus('Copy failed')
+                        }
+                      }}
+                    >
+                      Copy Anchors
+                    </button>
+                    {copyStatus ? <span className="debugCopyStatus">{copyStatus}</span> : null}
+                    {mapping ? (
+                      <div className="mapDebugStats">
+                        <div>{`container: ${Math.round(mapping.containerW)} x ${Math.round(mapping.containerH)}`}</div>
+                        <div>{`natural: ${mapping.naturalW} x ${mapping.naturalH}`}</div>
+                        <div>{`scale: ${mapping.scale.toFixed(4)}`}</div>
+                        <div>{`offset: ${Math.round(mapping.offsetX)}, ${Math.round(mapping.offsetY)}`}</div>
+                        <div>{`drawn: ${Math.round(mapping.drawnW)} x ${Math.round(mapping.drawnH)}`}</div>
+                      </div>
+                    ) : null}
+                    <pre>{JSON.stringify(draftAnchorArray, null, 2)}</pre>
+                  </div>
+                </>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
