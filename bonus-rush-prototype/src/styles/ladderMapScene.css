@@ -4,7 +4,7 @@
 }
 
 .mapSceneHost.single {
-  height: calc(100vh - var(--ladder-header-height) - 3rem);
+  height: calc(100vh - var(--ladder-header-height));
 }
 
 .mapScene {
@@ -293,6 +293,34 @@
   pointer-events: none;
 }
 
+.mapDebugCrosshair {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+.mapDebugCrosshair::before,
+.mapDebugCrosshair::after {
+  content: '';
+  position: absolute;
+  background: #ff4ca8;
+}
+
+.mapDebugCrosshair::before {
+  left: 5px;
+  top: 0;
+  width: 2px;
+  height: 12px;
+}
+
+.mapDebugCrosshair::after {
+  left: 0;
+  top: 5px;
+  width: 12px;
+  height: 2px;
+}
+
 .mapDebugMark {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -455,7 +483,7 @@
 
 @media (max-width: 640px) {
   .mapSceneHost.single {
-    height: calc(100vh - var(--ladder-header-height) - 2.3rem);
+    height: calc(100vh - var(--ladder-header-height));
   }
 
   .mapSceneContent {
