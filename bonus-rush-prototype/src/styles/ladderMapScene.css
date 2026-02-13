@@ -1,0 +1,346 @@
+.mapSceneHost {
+  min-height: 0;
+  height: 100%;
+}
+
+.mapSceneHost.single {
+  height: calc(100vh - var(--ladder-header-height) - 3rem);
+}
+
+.mapScene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--br-node-border) 92%, #ffffff);
+  box-shadow: var(--br-node-shadow);
+}
+
+.mapScene.multi {
+  overflow-y: auto;
+}
+
+.mapSceneContent {
+  position: relative;
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+}
+
+.mapBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(0.92) contrast(0.96);
+  user-select: none;
+  pointer-events: none;
+}
+
+.mapOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.mapPathHighlight {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.mapPathHighlight path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--br-path-line) 48%, #ffffff);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2 11;
+  opacity: 0.34;
+}
+
+.nodeLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.mapNode {
+  position: absolute;
+  width: 4.2rem;
+  height: 4.4rem;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--br-node-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--br-node-fill) 96%, #ffffff);
+  box-shadow: var(--br-node-shadow);
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 140ms ease, filter 180ms ease;
+}
+
+.mapNode:hover {
+  transform: translate(-50%, -50%) scale(1.04);
+  filter: brightness(1.02);
+}
+
+.mapNodeLevel {
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  padding: 0.16rem 0.46rem;
+  font-size: 0.64rem;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--br-primary) 84%, #1b2b22);
+  border: 1px solid color-mix(in srgb, var(--br-primary) 22%, #ffffff);
+  background: color-mix(in srgb, var(--br-node-fill) 90%, #ffffff);
+  letter-spacing: 0.02em;
+}
+
+.mapNode.locked {
+  cursor: pointer;
+}
+
+.mapNodeLockOverlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #18271b3d;
+}
+
+.mapNodeLockIcon {
+  width: 1.38rem;
+  height: 1.38rem;
+  display: grid;
+  place-items: center;
+  font-size: 0.84rem;
+  line-height: 1;
+  border-radius: 999px;
+  color: var(--br-tooltip-text);
+  background: color-mix(in srgb, var(--br-tooltip-bg) 86%, #ffffff 14%);
+  box-shadow: 0 2px 8px #1121173d;
+}
+
+.medal-badge {
+  position: relative;
+  width: 3.1rem;
+  height: 3.35rem;
+  display: grid;
+  place-items: center;
+}
+
+.medal-ribbon {
+  position: absolute;
+  bottom: 0.22rem;
+  width: 0.86rem;
+  height: 1.26rem;
+  border-radius: 0.2rem;
+  background: linear-gradient(180deg, #d9e5f1, #9bb3c8);
+}
+
+.medal-ribbon-left {
+  left: 0.54rem;
+  transform: rotate(-8deg);
+}
+
+.medal-ribbon-right {
+  right: 0.54rem;
+  transform: rotate(8deg);
+}
+
+.medal-core {
+  width: 2.52rem;
+  height: 2.52rem;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  box-shadow:
+    inset 0 2px 4px #ffffff66,
+    0 6px 10px #1636292a;
+}
+
+.medal-stars {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -54%);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.medal-bronze .medal-core {
+  border-color: color-mix(in srgb, var(--br-medal-bronze) 66%, #7f5d35);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--br-medal-bronze) 48%, #ffffff) 0%,
+    var(--br-medal-bronze) 68%,
+    color-mix(in srgb, var(--br-medal-bronze) 74%, #5f4426) 100%
+  );
+}
+
+.medal-bronze .medal-stars {
+  color: #6a4522;
+}
+
+.medal-silver .medal-core {
+  border-color: color-mix(in srgb, var(--br-medal-silver) 68%, #5d6974);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--br-medal-silver) 46%, #ffffff) 0%,
+    var(--br-medal-silver) 72%,
+    color-mix(in srgb, var(--br-medal-silver) 70%, #7e8c9b) 100%
+  );
+}
+
+.medal-silver .medal-stars {
+  color: #435362;
+}
+
+.medal-gold .medal-core {
+  border-color: color-mix(in srgb, var(--br-medal-gold) 68%, #7b6730);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--br-medal-gold) 46%, #ffffff) 0%,
+    var(--br-medal-gold) 72%,
+    color-mix(in srgb, var(--br-medal-gold) 72%, #7b6528) 100%
+  );
+}
+
+.medal-gold .medal-stars {
+  color: #66510f;
+}
+
+.medal-badge.is-empty .medal-core {
+  border-color: color-mix(in srgb, var(--br-node-border) 72%, #8f9d95);
+  background: linear-gradient(165deg, #f6f7f4 0%, #dde4db 100%);
+}
+
+.medal-badge.is-empty .medal-stars {
+  color: #6f7d74;
+}
+
+.medal-badge.is-empty .medal-ribbon {
+  background: linear-gradient(180deg, #e6ecef, #b8c5cf);
+}
+
+.br-node-tooltip {
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: 178px;
+  border-radius: 12px;
+  padding: 0.42rem 0.54rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  background: var(--br-tooltip-bg);
+  color: var(--br-tooltip-text);
+  border: 1px solid color-mix(in srgb, var(--br-tooltip-bg) 74%, #ffffff);
+  box-shadow: 0 8px 20px #17302638;
+  pointer-events: none;
+}
+
+.br-node-tooltip.is-above {
+  margin-top: -3.6rem;
+}
+
+.br-node-tooltip.is-below {
+  margin-top: 3.05rem;
+}
+
+.br-node-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-style: solid;
+}
+
+.br-node-tooltip.is-above::after {
+  bottom: -6px;
+  border-width: 6px 6px 0;
+  border-color: var(--br-tooltip-bg) transparent transparent;
+}
+
+.br-node-tooltip.is-below::after {
+  top: -6px;
+  border-width: 0 6px 6px;
+  border-color: transparent transparent var(--br-tooltip-bg);
+}
+
+.mapDebugDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ff4ca8;
+  box-shadow: 0 0 0 2px #ffffffa8;
+  pointer-events: none;
+}
+
+.mapDebugMark {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  display: grid;
+  justify-items: center;
+  gap: 0.2rem;
+}
+
+.mapDebugLabel {
+  font-size: 0.63rem;
+  font-weight: 700;
+  color: #452465;
+  background: #ffffffd9;
+  border: 1px solid #bc9be2;
+  border-radius: 6px;
+  padding: 0.07rem 0.25rem;
+}
+
+.mapDebugBounds {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed #f553b1aa;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@media (max-width: 640px) {
+  .mapSceneHost.single {
+    height: calc(100vh - var(--ladder-header-height) - 2.3rem);
+  }
+
+  .mapSceneContent {
+    max-width: 390px;
+  }
+
+  .mapNode {
+    width: 3.9rem;
+    height: 4.1rem;
+  }
+
+  .medal-badge {
+    width: 2.9rem;
+    height: 3.14rem;
+  }
+
+  .medal-core {
+    width: 2.34rem;
+    height: 2.34rem;
+  }
+}

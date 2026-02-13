@@ -1,67 +1,42 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CoinPill, DemoModeButton } from '../components'
-import { LadderMap, type LadderMapLevel, type LadderNodeState } from '../components/LadderMap'
+import { type LadderMapSceneLevel, LadderMapScene } from '../components/LadderMapScene'
 import { bonusRushPuzzles } from '../data/bonusRush'
 import {
   getInventory,
   getLockReason,
   getPuzzleMasterySummary,
-  getProgress,
   getPuzzleUnlockStatus,
   isDemoModeEnabled,
   setDemoModeEnabled,
 } from '../state/storage'
 
-function resolveNodeState(puzzleId: string, progress: ReturnType<typeof getProgress>): LadderNodeState {
+function resolveNodeUnlocked(puzzleId: string): boolean {
   const unlockStatus = getPuzzleUnlockStatus(puzzleId)
-
-  if (unlockStatus.isComingNextWeek) {
-    return 'Coming Next Week'
-  }
-
-  if (!unlockStatus.isUnlocked) {
-    return 'Locked'
-  }
-
-  if ((progress[puzzleId]?.Gold?.bestStars ?? 0) >= 1) {
-    return 'Completed'
-  }
-
-  return 'In Progress'
+  return unlockStatus.isUnlocked && !unlockStatus.isComingNextWeek
 }
 export function Ladder() {
   const navigate = useNavigate()
   const [demoMode, setDemoMode] = useState(() => isDemoModeEnabled())
   const [showTitleFallback, setShowTitleFallback] = useState(false)
-  const progress = useMemo(() => getProgress(), [demoMode])
   const inventory = useMemo(() => getInventory(), [demoMode])
-  const nextPlayableId = useMemo(() => {
-    const firstIncompleteUnlocked = bonusRushPuzzles.find((puzzle) => {
-      const state = resolveNodeState(puzzle.id, progress)
-      return state === 'In Progress'
-    })
-    return firstIncompleteUnlocked?.id ?? bonusRushPuzzles.find((puzzle) => resolveNodeState(puzzle.id, progress) !== 'Locked')?.id
-  }, [progress])
 
-  const levels = useMemo<LadderMapLevel[]>(
+  const levels = useMemo<LadderMapSceneLevel[]>(
     () =>
       bonusRushPuzzles.map((puzzle, index) => {
-        const state = resolveNodeState(puzzle.id, progress)
         const mastery = getPuzzleMasterySummary(puzzle.id)
 
         return {
           puzzleId: puzzle.id,
           levelNumber: index + 1,
-          state,
-          unlocked: state !== 'Locked' && state !== 'Coming Next Week',
-          isNextPlayable: puzzle.id === nextPlayableId,
+          unlocked: resolveNodeUnlocked(puzzle.id),
           lockReason: getLockReason(puzzle.id),
           displayTier: mastery.displayTier,
           displayStars: mastery.displayStars,
         }
       }),
-    [progress, nextPlayableId],
+    [demoMode],
   )
 
   return (
@@ -87,7 +62,7 @@ export function Ladder() {
         <CoinPill className="ladder-coin-pill" coins={inventory.coins} />
       </header>
 
-      <LadderMap levels={levels} onSelectLevel={(puzzleId) => navigate(`/puzzle/${puzzleId}?tier=Bronze`)} />
+      <LadderMapScene levels={levels} onSelectLevel={(puzzleId) => navigate(`/puzzle/${puzzleId}?tier=Bronze`)} />
       <DemoModeButton
         enabled={demoMode}
         onToggle={() => {
