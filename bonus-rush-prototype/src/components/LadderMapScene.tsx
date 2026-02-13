@@ -19,7 +19,7 @@ interface NodeAnchor {
 const NODE_ANCHORS: NodeAnchor[] = [
   { level: 1, x: 372, y: 1781 },
   { level: 2, x: 747, y: 1526 },
-  { level: 3, x: 500, y: 1156 },
+  { level: 3, x: 707, y: 1070 },
   { level: 4, x: 944, y: 719 },
 ]
 
