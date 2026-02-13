@@ -1,19 +1,36 @@
 :root {
+  /* Palette approximated from inspiration/progression-map-bg.jpg */
+  --br-map-sky-mist: #eaf4fb;
+  --br-map-mint: #d7e8de;
+  --br-map-sage: #bfd6bc;
+  --br-map-moss: #9cbf9d;
+  --br-map-olive: #7ea084;
+  --br-map-sand: #ddd0b5;
+  --br-map-deep-forest: #3e6c57;
+
+  --br-map-cloud-a: #f3f8f7;
+  --br-map-cloud-b: #d9e9df;
+  --br-map-cloud-c: #c7ddc7;
+  --br-map-spot: #b9cfb9;
+  --br-map-contour: #8eaf96;
+  --br-map-noise-dot: #7f9f83;
+  --br-map-highlight-dot: #f5f0db;
+
   --br-primary: #2f6d53;
   --br-secondary: #5f8a72;
   --br-accent: #f0c56f;
 
-  --br-bg-gradient-top: #edf6ff;
-  --br-bg-gradient-mid: #dcefe8;
-  --br-bg-gradient-bottom: #c8dfbf;
+  --br-bg-gradient-top: var(--br-map-sky-mist);
+  --br-bg-gradient-mid: var(--br-map-mint);
+  --br-bg-gradient-bottom: var(--br-map-sage);
 
-  --br-path-line: #86ad96;
+  --br-path-line: var(--br-map-olive);
 
-  --br-node-fill: #fffaf0;
-  --br-node-border: #d4c7ab;
+  --br-node-fill: #fffaf3;
+  --br-node-border: #d6c8ab;
   --br-node-shadow: 0 10px 24px #2f5d4424;
 
-  --br-tooltip-bg: #264c3a;
+  --br-tooltip-bg: var(--br-map-deep-forest);
   --br-tooltip-text: #f2fbf6;
 
   --br-medal-bronze: #ce9b62;

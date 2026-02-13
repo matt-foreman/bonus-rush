@@ -36,6 +36,14 @@ export function Ladder() {
   const [showTitleFallback, setShowTitleFallback] = useState(false)
   const progress = useMemo(() => getProgress(), [demoMode])
   const inventory = useMemo(() => getInventory(), [demoMode])
+  const nextPlayableId = useMemo(() => {
+    const firstIncompleteUnlocked = bonusRushPuzzles.find((puzzle) => {
+      const state = resolveNodeState(puzzle.id, progress)
+      return state === 'In Progress'
+    })
+    return firstIncompleteUnlocked?.id ?? bonusRushPuzzles.find((puzzle) => resolveNodeState(puzzle.id, progress) !== 'Locked')?.id
+  }, [progress])
+
   const levels = useMemo<LadderMapLevel[]>(
     () =>
       bonusRushPuzzles.map((puzzle, index) => {
@@ -47,12 +55,13 @@ export function Ladder() {
           levelNumber: index + 1,
           state,
           unlocked: state !== 'Locked' && state !== 'Coming Next Week',
+          isNextPlayable: puzzle.id === nextPlayableId,
           lockReason: getLockReason(puzzle.id),
           displayTier: mastery.displayTier,
           displayStars: mastery.displayStars,
         }
       }),
-    [progress],
+    [progress, nextPlayableId],
   )
 
   return (
