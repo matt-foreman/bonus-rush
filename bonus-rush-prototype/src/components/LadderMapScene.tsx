@@ -10,6 +10,8 @@ const TOOLTIP_AUTO_CLOSE_MS = 2500
 const RESIZE_DEBOUNCE_MS = 100
 const DEBUG_AVAILABLE = import.meta.env.DEV
 const DEBUG_STORAGE_KEY = 'bonusRush.debugAnchors'
+const SPARKLE_BURST_MS = 3000
+const SPARKLE_INTERVAL_MS = 20000
 
 interface NodeAnchor {
   level: number
@@ -41,6 +43,7 @@ interface Sparkle {
   x: string
   y: string
   delay: string
+  size: string
 }
 
 interface MappingParams {
@@ -213,6 +216,7 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
   const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(null)
   const [draftAnchors, setDraftAnchors] = useState<DraftAnchors>(() => loadDraftAnchors())
   const [copyStatus, setCopyStatus] = useState('')
+  const [sparkleActive, setSparkleActive] = useState(false)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null)
   const [screenPoints, setScreenPoints] = useState<ScreenPoint[]>([])
@@ -221,11 +225,12 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
   const cappedLevels = useMemo(() => levels.slice(0, NODE_ANCHORS.length), [levels])
   const sparkles = useMemo<Sparkle[]>(
     () =>
-      Array.from({ length: 10 }).map((_, index) => ({
+      Array.from({ length: 12 }).map((_, index) => ({
         id: index,
-        x: `${20 + Math.random() * 60}%`,
-        y: `${20 + Math.random() * 180}px`,
-        delay: `${Math.random() * 2.5}s`,
+        x: `${22 + Math.random() * 56}%`,
+        y: `${18 + Math.random() * 128}px`,
+        delay: `${Math.random() * 0.9}s`,
+        size: `${12 + Math.random() * 12}px`,
       })),
     [],
   )
@@ -363,6 +368,29 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
     return () => window.clearTimeout(timeout)
   }, [copyStatus])
 
+  useEffect(() => {
+    let burstTimeout: number | null = null
+    const triggerBurst = () => {
+      setSparkleActive(true)
+      if (burstTimeout) {
+        window.clearTimeout(burstTimeout)
+      }
+      burstTimeout = window.setTimeout(() => {
+        setSparkleActive(false)
+      }, SPARKLE_BURST_MS)
+    }
+
+    triggerBurst()
+    const interval = window.setInterval(triggerBurst, SPARKLE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(interval)
+      if (burstTimeout) {
+        window.clearTimeout(burstTimeout)
+      }
+    }
+  }, [])
+
   const getLockMessage = (reason: LockedReason | null): string => {
     if (reason === LockedReason.WeeklyUnlock) {
       return 'Coming next week'
@@ -443,7 +471,7 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
             }}
           />
 
-          <div className="sparkleLayer" aria-hidden="true">
+          <div className={`sparkleLayer ${sparkleActive ? 'is-active' : ''}`} aria-hidden="true">
             {sparkles.map((sparkle) => (
               <div
                 key={sparkle.id}
@@ -452,8 +480,11 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
                   left: sparkle.x,
                   top: sparkle.y,
                   animationDelay: sparkle.delay,
+                  fontSize: sparkle.size,
                 }}
-              />
+              >
+                +
+              </div>
             ))}
           </div>
 

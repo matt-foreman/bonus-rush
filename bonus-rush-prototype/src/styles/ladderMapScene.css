@@ -135,33 +135,44 @@
   top: 0;
   left: 0;
   width: 100%;
-  height: 35%;
+  height: 32%;
   pointer-events: none;
   z-index: 2;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.sparkleLayer.is-active {
+  opacity: 1;
 }
 
 .sparkle {
   position: absolute;
-  width: 6px;
-  height: 6px;
-  background: radial-gradient(circle, #fff 0%, #ffe066 60%, transparent 100%);
-  border-radius: 50%;
+  width: 1em;
+  height: 1em;
+  line-height: 1;
+  font-weight: 900;
+  text-align: center;
+  color: #fffbe8;
+  text-shadow:
+    0 0 10px #ffe98bcc,
+    0 0 3px #ffe066;
   opacity: 0;
-  animation: sparkleTwinkle 2.5s ease-in-out infinite;
+  animation: sparkleTwinkle 1.2s ease-in-out infinite;
 }
 
 @keyframes sparkleTwinkle {
   0% {
     opacity: 0;
-    transform: scale(0.5);
+    transform: scale(0.75);
   }
   50% {
-    opacity: 1;
-    transform: scale(1.2);
+    opacity: 0.95;
+    transform: scale(1.15);
   }
   100% {
     opacity: 0;
-    transform: scale(0.5);
+    transform: scale(0.8);
   }
 }
 
