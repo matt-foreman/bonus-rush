@@ -207,6 +207,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
 
   const [debugEnabled, setDebugEnabled] = useState(false)
   const [placementMode, setPlacementMode] = useState(false)
+  const [showAnchorsPanel, setShowAnchorsPanel] = useState(false)
   const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(null)
   const [draftAnchors, setDraftAnchors] = useState<DraftAnchors>(() => loadDraftAnchors())
   const [copyStatus, setCopyStatus] = useState('')
@@ -368,6 +369,26 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
   }
 
   const subtlePathD = useMemo(() => buildPathD(screenPoints), [screenPoints])
+  const placementCardPosition = useMemo(() => {
+    if (!selectedPoint) {
+      return null
+    }
+
+    const cardWidth = 180
+    const cardHeight = 94
+    const margin = 10
+
+    const left = Math.min(
+      Math.max(margin, selectedPoint.cx + 10),
+      Math.max(margin, containerSize.width - cardWidth - margin),
+    )
+    const top = Math.min(
+      Math.max(margin, selectedPoint.cy + 10),
+      Math.max(margin, containerSize.height - cardHeight - margin),
+    )
+
+    return { left, top }
+  }, [selectedPoint, containerSize])
 
   return (
     <div className="mapSceneHost single">
@@ -525,8 +546,8 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
               <div
                 className="debugPlacementCard"
                 style={{
-                  left: selectedPoint.cx + 10,
-                  top: selectedPoint.cy + 10,
+                  left: placementCardPosition?.left ?? selectedPoint.cx + 10,
+                  top: placementCardPosition?.top ?? selectedPoint.cy + 10,
                 }}
               >
                 <div>{`imageX: ${selectedPoint.imageX}`}</div>
@@ -567,6 +588,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                     if (!next) {
                       setPlacementMode(false)
                       setSelectedPoint(null)
+                      setShowAnchorsPanel(false)
                     }
                     return next
                   })
@@ -588,33 +610,43 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                     Placement Mode
                   </button>
 
-                  <div className="mapDebugPanel">
-                    <button
-                      type="button"
-                      className="debugCopyButton"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(JSON.stringify(draftAnchorArray, null, 2))
-                          setCopyStatus('Copied')
-                        } catch {
-                          setCopyStatus('Copy failed')
-                        }
-                      }}
-                    >
-                      Copy Anchors
-                    </button>
-                    {copyStatus ? <span className="debugCopyStatus">{copyStatus}</span> : null}
-                    {mapping ? (
-                      <div className="mapDebugStats">
-                        <div>{`container: ${Math.round(mapping.containerW)} x ${Math.round(mapping.containerH)}`}</div>
-                        <div>{`natural: ${mapping.naturalW} x ${mapping.naturalH}`}</div>
-                        <div>{`scale: ${mapping.scale.toFixed(4)}`}</div>
-                        <div>{`offset: ${Math.round(mapping.offsetX)}, ${Math.round(mapping.offsetY)}`}</div>
-                        <div>{`drawn: ${Math.round(mapping.drawnW)} x ${Math.round(mapping.drawnH)}`}</div>
-                      </div>
-                    ) : null}
-                    <pre>{JSON.stringify(draftAnchorArray, null, 2)}</pre>
-                  </div>
+                  <button
+                    type="button"
+                    className={`debugButton debugAnchorsToggle ${showAnchorsPanel ? 'is-active' : ''}`}
+                    onClick={() => setShowAnchorsPanel((previous) => !previous)}
+                  >
+                    Anchors
+                  </button>
+
+                  {showAnchorsPanel ? (
+                    <div className="mapDebugPanel">
+                      <button
+                        type="button"
+                        className="debugCopyButton"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(JSON.stringify(draftAnchorArray, null, 2))
+                            setCopyStatus('Copied')
+                          } catch {
+                            setCopyStatus('Copy failed')
+                          }
+                        }}
+                      >
+                        Copy Anchors
+                      </button>
+                      {copyStatus ? <span className="debugCopyStatus">{copyStatus}</span> : null}
+                      {mapping ? (
+                        <div className="mapDebugStats">
+                          <div>{`container: ${Math.round(mapping.containerW)} x ${Math.round(mapping.containerH)}`}</div>
+                          <div>{`natural: ${mapping.naturalW} x ${mapping.naturalH}`}</div>
+                          <div>{`scale: ${mapping.scale.toFixed(4)}`}</div>
+                          <div>{`offset: ${Math.round(mapping.offsetX)}, ${Math.round(mapping.offsetY)}`}</div>
+                          <div>{`drawn: ${Math.round(mapping.drawnW)} x ${Math.round(mapping.drawnH)}`}</div>
+                        </div>
+                      ) : null}
+                      <pre>{JSON.stringify(draftAnchorArray, null, 2)}</pre>
+                    </div>
+                  ) : null}
                 </>
               ) : null}
             </div>

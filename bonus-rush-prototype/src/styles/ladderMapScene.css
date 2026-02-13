@@ -430,7 +430,7 @@
   font-size: 12px;
   display: grid;
   gap: 0.35rem;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .debugAssignRow {
@@ -470,15 +470,26 @@
   background: rgb(82 66 17 / 72%);
 }
 
+.debugAnchorsToggle {
+  min-width: 88px;
+}
+
+.debugAnchorsToggle.is-active {
+  border-color: #9fd9be;
+  background: rgb(18 66 47 / 72%);
+}
+
 .mapDebugPanel {
-  width: min(300px, calc(100vw - 40px));
+  width: min(250px, calc(100vw - 40px));
   background: rgb(0 0 0 / 76%);
   color: #fff;
   border-radius: 8px;
   padding: 8px;
   display: grid;
   gap: 0.4rem;
-  pointer-events: none;
+  pointer-events: auto;
+  max-height: min(40vh, 280px);
+  overflow: auto;
 }
 
 .mapDebugStats {
