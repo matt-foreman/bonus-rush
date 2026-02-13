@@ -181,7 +181,7 @@ p {
   grid-template-rows: auto 1fr;
   gap: 0.9rem;
   min-height: calc(100vh - 2.2rem);
-  --ladder-header-height: 154px;
+  --ladder-header-height: 76px;
 }
 
 .ladder-header {
@@ -189,6 +189,10 @@ p {
   padding: 0.8rem 1rem 0.7rem;
   text-align: center;
   min-height: var(--ladder-header-height);
+}
+
+.ladder-header--compact {
+  padding: 0.5rem 0.75rem;
 }
 
 .ladder-header p {

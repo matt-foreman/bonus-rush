@@ -19,7 +19,6 @@ function resolveNodeUnlocked(puzzleId: string): boolean {
 export function Ladder() {
   const navigate = useNavigate()
   const [demoMode, setDemoMode] = useState(() => isDemoModeEnabled())
-  const [showTitleFallback, setShowTitleFallback] = useState(false)
   const inventory = useMemo(() => getInventory(), [demoMode])
 
   const levels = useMemo<LadderMapSceneLevel[]>(
@@ -41,24 +40,8 @@ export function Ladder() {
 
   return (
     <section className="ladder-page">
-      <header className="card ladder-header">
+      <header className="card ladder-header ladder-header--compact">
         <h1 className="sr-only">Bonus Rush</h1>
-        <div className="ladder-title-wrap" aria-hidden="true">
-          {showTitleFallback ? (
-            <span className="ladder-title-fallback">
-              {/* TODO: Swap this fallback text lockup with final production title image asset. */}
-              Bonus Rush
-            </span>
-          ) : (
-            <img
-              className="ladder-title-image"
-              src="/inspiration/title-example.jpg"
-              alt=""
-              onError={() => setShowTitleFallback(true)}
-            />
-          )}
-        </div>
-        <p>New puzzles every week</p>
         <CoinPill className="ladder-coin-pill" coins={inventory.coins} />
       </header>
 

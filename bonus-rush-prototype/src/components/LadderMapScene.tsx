@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import mapBackground from '../assets/bonus-rush-map-bg.png'
+import bonusRushMapWithLogo from '../assets/bonus_rush_map_with_logo_1080x1920.png'
 import { LockedReason } from '../state/storage'
 import type { TierName } from '../types/bonusRush'
 import { MedalBadge } from './MedalBadge'
@@ -34,6 +34,13 @@ interface ActiveTooltip {
   x: number
   y: number
   placement: 'above' | 'below'
+}
+
+interface Sparkle {
+  id: number
+  x: string
+  y: string
+  delay: string
 }
 
 export interface LadderMapSceneLevel {
@@ -87,6 +94,16 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
   const [activeTooltip, setActiveTooltip] = useState<ActiveTooltip | null>(null)
 
   const cappedLevels = useMemo(() => levels.slice(0, NODE_ANCHORS.length), [levels])
+  const sparkles = useMemo<Sparkle[]>(
+    () =>
+      Array.from({ length: 10 }).map((_, index) => ({
+        id: index,
+        x: `${20 + Math.random() * 60}%`,
+        y: `${20 + Math.random() * 180}px`,
+        delay: `${Math.random() * 2.5}s`,
+      })),
+    [],
+  )
 
   useEffect(() => {
     const computePoints = () => {
@@ -181,7 +198,21 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
             height: '100%',
           }}
         >
-          <img className="mapBg" src={mapBackground} alt="" />
+          <img className="mapBg" src={bonusRushMapWithLogo} alt="Bonus Rush Map" />
+
+          <div className="sparkleLayer" aria-hidden="true">
+            {sparkles.map((sparkle) => (
+              <div
+                key={sparkle.id}
+                className="sparkle"
+                style={{
+                  left: sparkle.x,
+                  top: sparkle.y,
+                  animationDelay: sparkle.delay,
+                }}
+              />
+            ))}
+          </div>
 
           <svg className="mapPathHighlight" aria-hidden="true">
             <path d={subtlePathD} />
