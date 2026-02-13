@@ -5,8 +5,6 @@ import type { TierName } from '../types/bonusRush'
 import { MedalBadge } from './MedalBadge'
 import { Tooltip } from './Tooltip'
 
-const IMAGE_WIDTH = 1024
-const IMAGE_HEIGHT = 1536
 const TOOLTIP_AUTO_CLOSE_MS = 2500
 const RESIZE_DEBOUNCE_MS = 100
 const DEBUG_MAP = true
@@ -18,10 +16,10 @@ interface NodeAnchor {
 }
 
 const NODE_ANCHORS: NodeAnchor[] = [
-  { level: 1, x: 600, y: 1302 },
-  { level: 2, x: 304, y: 1008 },
-  { level: 3, x: 813, y: 548 },
-  { level: 4, x: 239, y: 202 },
+  { level: 1, x: 385, y: 1320 },
+  { level: 2, x: 638, y: 1151 },
+  { level: 3, x: 543, y: 814 },
+  { level: 4, x: 692, y: 470 },
 ]
 
 interface ScreenPoint {
@@ -64,10 +62,10 @@ interface LadderMapSceneProps {
   onSelectLevel: (puzzleId: string) => void
 }
 
-function imageToScreenPoint(containerRect: DOMRect, anchor: NodeAnchor): ScreenPoint {
-  const scale = Math.max(containerRect.width / IMAGE_WIDTH, containerRect.height / IMAGE_HEIGHT)
-  const drawnW = IMAGE_WIDTH * scale
-  const drawnH = IMAGE_HEIGHT * scale
+function imageToScreenPoint(containerRect: DOMRect, naturalWidth: number, naturalHeight: number, anchor: NodeAnchor): ScreenPoint {
+  const scale = Math.max(containerRect.width / naturalWidth, containerRect.height / naturalHeight)
+  const drawnW = naturalWidth * scale
+  const drawnH = naturalHeight * scale
   const offsetX = (containerRect.width - drawnW) / 2
   const offsetY = (containerRect.height - drawnH) / 2
 
@@ -77,10 +75,16 @@ function imageToScreenPoint(containerRect: DOMRect, anchor: NodeAnchor): ScreenP
   }
 }
 
-function screenToImagePoint(containerRect: DOMRect, mouseX: number, mouseY: number): { imageX: number; imageY: number } {
-  const scale = Math.max(containerRect.width / IMAGE_WIDTH, containerRect.height / IMAGE_HEIGHT)
-  const drawnW = IMAGE_WIDTH * scale
-  const drawnH = IMAGE_HEIGHT * scale
+function screenToImagePoint(
+  containerRect: DOMRect,
+  naturalWidth: number,
+  naturalHeight: number,
+  mouseX: number,
+  mouseY: number,
+): { imageX: number; imageY: number } {
+  const scale = Math.max(containerRect.width / naturalWidth, containerRect.height / naturalHeight)
+  const drawnW = naturalWidth * scale
+  const drawnH = naturalHeight * scale
   const offsetX = (containerRect.width - drawnW) / 2
   const offsetY = (containerRect.height - drawnH) / 2
 
@@ -88,8 +92,8 @@ function screenToImagePoint(containerRect: DOMRect, mouseX: number, mouseY: numb
   const imageY = (mouseY - offsetY) / scale
 
   return {
-    imageX: Math.max(0, Math.min(IMAGE_WIDTH, imageX)),
-    imageY: Math.max(0, Math.min(IMAGE_HEIGHT, imageY)),
+    imageX: Math.max(0, Math.min(naturalWidth, imageX)),
+    imageY: Math.max(0, Math.min(naturalHeight, imageY)),
   }
 }
 
@@ -113,9 +117,11 @@ function buildPathD(points: ScreenPoint[]): string {
 
 export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
   const sceneRef = useRef<HTMLDivElement | null>(null)
+  const imgRef = useRef<HTMLImageElement | null>(null)
   const [nodeAnchors, setNodeAnchors] = useState<NodeAnchor[]>(NODE_ANCHORS)
   const [placementMode, setPlacementMode] = useState(false)
   const [placementPoint, setPlacementPoint] = useState<PlacementPoint | null>(null)
+  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null)
   const [copyStatus, setCopyStatus] = useState('')
   const [screenPoints, setScreenPoints] = useState<ScreenPoint[]>([])
   const [activeTooltip, setActiveTooltip] = useState<ActiveTooltip | null>(null)
@@ -133,18 +139,37 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
   )
 
   useEffect(() => {
+    const imageEl = imgRef.current
+    if (imageEl && imageEl.complete && imageEl.naturalWidth > 0 && imageEl.naturalHeight > 0) {
+      setNaturalSize({
+        width: imageEl.naturalWidth,
+        height: imageEl.naturalHeight,
+      })
+    }
+  }, [])
+
+  useEffect(() => {
     const computePoints = () => {
       const sceneEl = sceneRef.current
-      if (!sceneEl) {
+      const imageEl = imgRef.current
+      if (!sceneEl || !imageEl) {
         return
       }
 
       const rect = sceneEl.getBoundingClientRect()
-      if (rect.width <= 0 || rect.height <= 0) {
+      const naturalWidth = imageEl.naturalWidth || naturalSize?.width || 0
+      const naturalHeight = imageEl.naturalHeight || naturalSize?.height || 0
+      if (rect.width <= 0 || rect.height <= 0 || naturalWidth <= 0 || naturalHeight <= 0) {
         return
       }
 
-      const points = nodeAnchors.slice(0, cappedLevels.length).map((anchor) => imageToScreenPoint(rect, anchor))
+      const points = cappedLevels.map((level) => {
+        const anchor = nodeAnchors.find((entry) => entry.level === level.levelNumber)
+        if (!anchor) {
+          return { left: rect.width / 2, top: rect.height / 2 }
+        }
+        return imageToScreenPoint(rect, naturalWidth, naturalHeight, anchor)
+      })
       setScreenPoints(points)
     }
 
@@ -176,7 +201,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
         window.clearTimeout(timeoutId)
       }
     }
-  }, [cappedLevels.length, nodeAnchors])
+  }, [cappedLevels, nodeAnchors, naturalSize])
 
   useEffect(() => {
     if (!activeTooltip) {
@@ -254,9 +279,15 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
             }
 
             const rect = container.getBoundingClientRect()
+            const imageEl = imgRef.current
+            const naturalWidth = imageEl?.naturalWidth || naturalSize?.width || 0
+            const naturalHeight = imageEl?.naturalHeight || naturalSize?.height || 0
+            if (naturalWidth <= 0 || naturalHeight <= 0) {
+              return
+            }
             const mouseX = event.clientX - rect.left
             const mouseY = event.clientY - rect.top
-            const { imageX, imageY } = screenToImagePoint(rect, mouseX, mouseY)
+            const { imageX, imageY } = screenToImagePoint(rect, naturalWidth, naturalHeight, mouseX, mouseY)
 
             setPlacementPoint({
               containerX: mouseX,
@@ -266,7 +297,18 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
             })
           }}
         >
-          <img className="mapBg" src={bonusRushMapWithLogo} alt="Bonus Rush Map" />
+          <img
+            ref={imgRef}
+            className="mapBg"
+            src={bonusRushMapWithLogo}
+            alt="Bonus Rush Map"
+            onLoad={(event) => {
+              setNaturalSize({
+                width: event.currentTarget.naturalWidth,
+                height: event.currentTarget.naturalHeight,
+              })
+            }}
+          />
 
           <div className="sparkleLayer" aria-hidden="true">
             {sparkles.map((sparkle) => (
@@ -336,10 +378,18 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
             })}
 
             {DEBUG_MAP && placementMode
-              ? screenPoints.map((point, index) => {
-                  const anchor = nodeAnchors[index]
+              ? cappedLevels.map((level, index) => {
+                  const point = screenPoints[index]
+                  const anchor = nodeAnchors.find((entry) => entry.level === level.levelNumber)
+                  if (!point || !anchor) {
+                    return null
+                  }
                   return (
-                    <div key={`debug-${index}`} className="mapDebugMark" style={{ left: `${point.left}px`, top: `${point.top}px` }}>
+                    <div
+                      key={`debug-${level.puzzleId}`}
+                      className="mapDebugMark"
+                      style={{ left: `${point.left}px`, top: `${point.top}px` }}
+                    >
                       <span className="mapDebugCrosshair" />
                       <span className="mapDebugLabel">sx:{Math.round(point.left)} sy:{Math.round(point.top)}</span>
                       <span className="mapDebugLabel">ix:{anchor.x} iy:{anchor.y}</span>
