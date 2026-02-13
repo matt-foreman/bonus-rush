@@ -1,21 +1,17 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { LadderMap, type LadderMapLevel, type LadderNodeState } from '../components/LadderMap'
 import { bonusRushPuzzles } from '../data/bonusRush'
 import {
   getInventory,
+  getPuzzleMasterySummary,
   getProgress,
   getPuzzleUnlockStatus,
   isDemoModeEnabled,
-  isTierUnlocked,
   setDemoModeEnabled,
 } from '../state/storage'
-import type { TierName } from '../types/bonusRush'
 
-type NodeState = 'Locked' | 'In Progress' | 'Completed' | 'Coming Next Week'
-
-const tiers: TierName[] = ['Bronze', 'Silver', 'Gold']
-
-function resolveNodeState(puzzleId: string, progress: ReturnType<typeof getProgress>): NodeState {
+function resolveNodeState(puzzleId: string, progress: ReturnType<typeof getProgress>): LadderNodeState {
   const unlockStatus = getPuzzleUnlockStatus(puzzleId)
 
   if (unlockStatus.isComingNextWeek) {
@@ -32,24 +28,28 @@ function resolveNodeState(puzzleId: string, progress: ReturnType<typeof getProgr
 
   return 'In Progress'
 }
-
-function StarsRow({ count, locked }: { count: number; locked: boolean }) {
-  return (
-    <span className={`stars ${locked ? 'is-locked' : ''}`} aria-label={locked ? 'Locked tier' : `${count} stars`}>
-      {[0, 1, 2].map((i) => (
-        <span key={i} className={`star ${count > i ? 'filled' : ''}`}>
-          ★
-        </span>
-      ))}
-    </span>
-  )
-}
-
 export function Ladder() {
   const navigate = useNavigate()
   const [demoMode, setDemoMode] = useState(() => isDemoModeEnabled())
   const progress = useMemo(() => getProgress(), [])
   const inventory = useMemo(() => getInventory(), [])
+  const levels = useMemo<LadderMapLevel[]>(
+    () =>
+      bonusRushPuzzles.map((puzzle, index) => {
+        const state = resolveNodeState(puzzle.id, progress)
+        const mastery = getPuzzleMasterySummary(puzzle.id)
+
+        return {
+          puzzleId: puzzle.id,
+          levelNumber: index + 1,
+          state,
+          unlocked: state !== 'Locked' && state !== 'Coming Next Week',
+          displayTier: mastery.displayTier,
+          displayStars: mastery.displayStars,
+        }
+      }),
+    [progress],
+  )
 
   return (
     <section className="ladder-page">
@@ -77,44 +77,7 @@ export function Ladder() {
         </div>
       </header>
 
-      <div className="ladder-scroll card" role="list" aria-label="Bonus Rush ladder">
-        <div className="ladder-path" aria-hidden="true" />
-
-        {bonusRushPuzzles.map((puzzle, index) => {
-          const state = resolveNodeState(puzzle.id, progress)
-          const disabled = state === 'Locked' || state === 'Coming Next Week'
-
-          return (
-            <button
-              key={puzzle.id}
-              type="button"
-              role="listitem"
-              className={`puzzle-node ${disabled ? 'disabled' : ''}`}
-              disabled={disabled}
-              onClick={() => navigate(`/puzzle/${puzzle.id}?tier=Bronze`)}
-            >
-              <div className="node-top">
-                <span className="node-rank">{index + 1}</span>
-                <h2>{puzzle.title}</h2>
-                <span className={`state-badge state-${state.toLowerCase().replace(/\s+/g, '-')}`}>{state}</span>
-              </div>
-
-              <div className="tier-stars">
-                {tiers.map((tier) => {
-                  const tierProgress = progress[puzzle.id]?.[tier]
-                  const tierLocked = !isTierUnlocked(puzzle.id, tier)
-                  return (
-                    <div key={tier} className="tier-row">
-                      <span className="tier-name">{tier}</span>
-                      <StarsRow count={tierProgress?.bestStars ?? 0} locked={tierLocked} />
-                    </div>
-                  )
-                })}
-              </div>
-            </button>
-          )
-        })}
-      </div>
+      <LadderMap levels={levels} onSelectLevel={(puzzleId) => navigate(`/puzzle/${puzzleId}?tier=Bronze`)} />
     </section>
   )
 }

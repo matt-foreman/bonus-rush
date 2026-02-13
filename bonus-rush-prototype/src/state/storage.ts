@@ -36,6 +36,12 @@ export interface PuzzleUnlockStatus {
   daysUntilUnlock: number
 }
 
+export interface PuzzleMasterySummary {
+  displayTier: TierName
+  displayStars: number
+  isCompletedBronze: boolean
+}
+
 const defaultInventory: Inventory = {
   coins: 500,
   hints: 3,
@@ -325,6 +331,35 @@ export function getInventory(): Inventory {
   const sanitized = sanitizeInventory(parsed)
   window.localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(sanitized))
   return sanitized
+}
+
+export function getPuzzleMasterySummary(puzzleId: string): PuzzleMasterySummary {
+  const progress = getProgress()[puzzleId]
+  const bronzeStars = progress?.Bronze?.bestStars ?? 0
+  const silverStars = progress?.Silver?.bestStars ?? 0
+  const goldStars = progress?.Gold?.bestStars ?? 0
+
+  if (goldStars > 0) {
+    return {
+      displayTier: 'Gold',
+      displayStars: goldStars,
+      isCompletedBronze: bronzeStars >= 1,
+    }
+  }
+
+  if (silverStars > 0) {
+    return {
+      displayTier: 'Silver',
+      displayStars: silverStars,
+      isCompletedBronze: bronzeStars >= 1,
+    }
+  }
+
+  return {
+    displayTier: 'Bronze',
+    displayStars: bronzeStars,
+    isCompletedBronze: bronzeStars >= 1,
+  }
 }
 
 export function updateInventory(delta: InventoryDelta): Inventory {

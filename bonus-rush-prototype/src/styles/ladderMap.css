@@ -1,20 +1,213 @@
 .ladder-map-surface {
-  background: linear-gradient(180deg, var(--br-bg-gradient-top) 0%, var(--br-bg-gradient-mid) 52%, var(--br-bg-gradient-bottom) 100%);
+  background:
+    radial-gradient(circle at 18% 12%, #ffffff8c 0%, #ffffff00 36%),
+    radial-gradient(circle at 78% 0%, #ffffff6a 0%, #ffffff00 30%),
+    linear-gradient(180deg, var(--br-bg-gradient-top) 0%, var(--br-bg-gradient-mid) 52%, var(--br-bg-gradient-bottom) 100%);
+}
+
+.br-map-shell {
+  border: 1px solid color-mix(in srgb, var(--br-node-border) 92%, #ffffff);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: var(--br-node-shadow);
+}
+
+.br-map-scroll {
+  height: min(72vh, 760px);
+  overflow-y: auto;
+  padding: 0.85rem 0.7rem 1rem;
+}
+
+.br-map-canvas {
+  position: relative;
+  width: min(100%, 420px);
+  margin: 0 auto;
+}
+
+.br-map-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
 .ladder-map-path {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--br-path-line) 78%, #ffffff) 0%, var(--br-path-line) 100%);
+  fill: none;
+  stroke: var(--br-path-line);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.br-map-path-shadow {
+  fill: none;
+  stroke: color-mix(in srgb, var(--br-path-line) 34%, #ffffff);
+  stroke-width: 16;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.52;
 }
 
 .ladder-node-base {
   background: var(--br-node-fill);
-  border: 1px solid var(--br-node-border);
+  border: 2px solid var(--br-node-border);
   box-shadow: var(--br-node-shadow);
+}
+
+.br-waypoint {
+  position: absolute;
+  width: 4.2rem;
+  height: 4.4rem;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 2;
+  transition: transform 140ms ease, filter 180ms ease, box-shadow 180ms ease;
+}
+
+.br-waypoint:hover:not(:disabled) {
+  transform: translate(-50%, -50%) scale(1.05);
+  filter: brightness(1.03);
+}
+
+.br-waypoint:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.1);
+}
+
+.br-waypoint.disabled {
+  opacity: 0.78;
+}
+
+.br-waypoint-rank {
+  color: #244437;
+  font-weight: 900;
+  font-size: 1rem;
+}
+
+.br-waypoint-level {
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  padding: 0.16rem 0.46rem;
+  font-size: 0.64rem;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--br-primary) 84%, #1b2b22);
+  border: 1px solid color-mix(in srgb, var(--br-primary) 22%, #ffffff);
+  background: color-mix(in srgb, var(--br-node-fill) 86%, #ffffff);
+  letter-spacing: 0.02em;
 }
 
 .ladder-node-tooltip {
   background: var(--br-tooltip-bg);
   color: var(--br-tooltip-text);
+}
+
+.medal-badge {
+  position: relative;
+  width: 3.1rem;
+  height: 3.35rem;
+  display: grid;
+  place-items: center;
+}
+
+.medal-ribbon {
+  position: absolute;
+  bottom: 0.22rem;
+  width: 0.86rem;
+  height: 1.26rem;
+  border-radius: 0.2rem;
+  background: linear-gradient(180deg, #d9e5f1, #9bb3c8);
+}
+
+.medal-ribbon-left {
+  left: 0.54rem;
+  transform: rotate(-8deg);
+}
+
+.medal-ribbon-right {
+  right: 0.54rem;
+  transform: rotate(8deg);
+}
+
+.medal-core {
+  width: 2.52rem;
+  height: 2.52rem;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  box-shadow:
+    inset 0 2px 4px #ffffff66,
+    0 6px 10px #1636292a;
+}
+
+.medal-stars {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -54%);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.medal-bronze .medal-core {
+  border-color: color-mix(in srgb, var(--br-medal-bronze) 66%, #7f5d35);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--br-medal-bronze) 48%, #ffffff) 0%,
+    var(--br-medal-bronze) 68%,
+    color-mix(in srgb, var(--br-medal-bronze) 74%, #5f4426) 100%
+  );
+}
+
+.medal-bronze .medal-stars {
+  color: #6a4522;
+}
+
+.medal-silver .medal-core {
+  border-color: color-mix(in srgb, var(--br-medal-silver) 68%, #5d6974);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--br-medal-silver) 46%, #ffffff) 0%,
+    var(--br-medal-silver) 72%,
+    color-mix(in srgb, var(--br-medal-silver) 70%, #7e8c9b) 100%
+  );
+}
+
+.medal-silver .medal-stars {
+  color: #435362;
+}
+
+.medal-gold .medal-core {
+  border-color: color-mix(in srgb, var(--br-medal-gold) 68%, #7b6730);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--br-medal-gold) 46%, #ffffff) 0%,
+    var(--br-medal-gold) 72%,
+    color-mix(in srgb, var(--br-medal-gold) 72%, #7b6528) 100%
+  );
+}
+
+.medal-gold .medal-stars {
+  color: #66510f;
+}
+
+.medal-badge.is-empty .medal-core {
+  border-color: color-mix(in srgb, var(--br-node-border) 72%, #8f9d95);
+  background: linear-gradient(165deg, #f6f7f4 0%, #dde4db 100%);
+}
+
+.medal-badge.is-empty .medal-stars {
+  color: #6f7d74;
+}
+
+.medal-badge.is-empty .medal-ribbon {
+  background: linear-gradient(180deg, #e6ecef, #b8c5cf);
 }
 
 .ladder-medal {
@@ -34,4 +227,30 @@
 
 .ladder-medal-gold {
   background: var(--br-medal-gold);
+}
+
+@media (max-width: 640px) {
+  .br-map-scroll {
+    height: min(68vh, 690px);
+    padding: 0.7rem 0.42rem 0.9rem;
+  }
+
+  .br-map-canvas {
+    width: 100%;
+  }
+
+  .br-waypoint {
+    width: 3.9rem;
+    height: 4.1rem;
+  }
+
+  .medal-badge {
+    width: 2.9rem;
+    height: 3.14rem;
+  }
+
+  .medal-core {
+    width: 2.34rem;
+    height: 2.34rem;
+  }
 }
