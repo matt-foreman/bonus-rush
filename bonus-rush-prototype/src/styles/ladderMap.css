@@ -82,6 +82,10 @@
   opacity: 0.78;
 }
 
+.br-waypoint.locked {
+  cursor: pointer;
+}
+
 .br-waypoint-rank {
   color: #244437;
   font-weight: 900;
@@ -106,6 +110,73 @@
 .ladder-node-tooltip {
   background: var(--br-tooltip-bg);
   color: var(--br-tooltip-text);
+}
+
+.br-waypoint-lock-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #18271b3d;
+}
+
+.br-waypoint-lock-icon {
+  width: 1.38rem;
+  height: 1.38rem;
+  display: grid;
+  place-items: center;
+  font-size: 0.84rem;
+  line-height: 1;
+  border-radius: 999px;
+  color: var(--br-tooltip-text);
+  background: color-mix(in srgb, var(--br-tooltip-bg) 86%, #ffffff 14%);
+  box-shadow: 0 2px 8px #1121173d;
+}
+
+.br-node-tooltip {
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: 178px;
+  border-radius: 12px;
+  padding: 0.42rem 0.54rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  background: var(--br-tooltip-bg);
+  color: var(--br-tooltip-text);
+  border: 1px solid color-mix(in srgb, var(--br-tooltip-bg) 74%, #ffffff);
+  box-shadow: 0 8px 20px #17302638;
+  pointer-events: none;
+}
+
+.br-node-tooltip.is-above {
+  margin-top: -3.6rem;
+}
+
+.br-node-tooltip.is-below {
+  margin-top: 3.05rem;
+}
+
+.br-node-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-style: solid;
+}
+
+.br-node-tooltip.is-above::after {
+  bottom: -6px;
+  border-width: 6px 6px 0;
+  border-color: var(--br-tooltip-bg) transparent transparent;
+}
+
+.br-node-tooltip.is-below::after {
+  top: -6px;
+  border-width: 0 6px 6px;
+  border-color: transparent transparent var(--br-tooltip-bg);
 }
 
 .medal-badge {

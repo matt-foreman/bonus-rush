@@ -42,6 +42,11 @@ export interface PuzzleMasterySummary {
   isCompletedBronze: boolean
 }
 
+export enum LockedReason {
+  PreviousLevel = 'PREVIOUS_LEVEL',
+  WeeklyUnlock = 'WEEKLY_UNLOCK',
+}
+
 const defaultInventory: Inventory = {
   coins: 500,
   hints: 3,
@@ -311,6 +316,23 @@ export function getPuzzleUnlockStatus(puzzleId: string): PuzzleUnlockStatus {
     unlockDate: unlock?.unlockDate,
     daysUntilUnlock: Math.max(0, daysUntilUnlock),
   }
+}
+
+export function getLockReason(puzzleId: string): LockedReason | null {
+  const unlockStatus = getPuzzleUnlockStatus(puzzleId)
+  if (unlockStatus.isUnlocked) {
+    return null
+  }
+
+  if (!unlockStatus.prerequisitesMet) {
+    return LockedReason.PreviousLevel
+  }
+
+  if (!unlockStatus.weeklyDateReached) {
+    return LockedReason.WeeklyUnlock
+  }
+
+  return LockedReason.PreviousLevel
 }
 
 export function getInventory(): Inventory {

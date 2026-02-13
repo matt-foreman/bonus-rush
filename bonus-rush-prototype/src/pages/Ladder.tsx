@@ -4,6 +4,7 @@ import { LadderMap, type LadderMapLevel, type LadderNodeState } from '../compone
 import { bonusRushPuzzles } from '../data/bonusRush'
 import {
   getInventory,
+  getLockReason,
   getPuzzleMasterySummary,
   getProgress,
   getPuzzleUnlockStatus,
@@ -44,6 +45,7 @@ export function Ladder() {
           levelNumber: index + 1,
           state,
           unlocked: state !== 'Locked' && state !== 'Coming Next Week',
+          lockReason: getLockReason(puzzle.id),
           displayTier: mastery.displayTier,
           displayStars: mastery.displayStars,
         }

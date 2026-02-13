@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
 import { MedalBadge } from './MedalBadge'
+import { Tooltip } from './Tooltip'
+import { LockedReason } from '../state/storage'
 import type { TierName } from '../types/bonusRush'
 
 export type LadderNodeState = 'Locked' | 'In Progress' | 'Completed' | 'Coming Next Week'
@@ -8,6 +11,7 @@ export interface LadderMapLevel {
   levelNumber: number
   state: LadderNodeState
   unlocked: boolean
+  lockReason: LockedReason | null
   displayTier: TierName
   displayStars: number
 }
@@ -26,6 +30,15 @@ const MAP_WIDTH = 360
 const TOP_PADDING = 96
 const BOTTOM_PADDING = 120
 const STEP_Y = 200
+const TOOLTIP_AUTO_CLOSE_MS = 2500
+
+interface ActiveTooltip {
+  puzzleId: string
+  text: string
+  x: number
+  y: number
+  placement: 'above' | 'below'
+}
 
 function buildNodePoints(count: number): Point[] {
   const centerX = MAP_WIDTH / 2
@@ -70,6 +83,47 @@ export function LadderMap({ levels, onSelectLevel }: LadderMapProps) {
   const points = buildNodePoints(levels.length)
   const mapHeight = TOP_PADDING + BOTTOM_PADDING + Math.max(1, levels.length - 1) * STEP_Y
   const pathData = buildSmoothPath(points)
+  const [activeTooltip, setActiveTooltip] = useState<ActiveTooltip | null>(null)
+
+  useEffect(() => {
+    if (!activeTooltip) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setActiveTooltip(null)
+    }, TOOLTIP_AUTO_CLOSE_MS)
+
+    return () => window.clearTimeout(timeout)
+  }, [activeTooltip])
+
+  useEffect(() => {
+    if (!activeTooltip) {
+      return
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null
+      if (!target) {
+        return
+      }
+      if (target.closest('.br-node-tooltip') || target.closest('.br-waypoint.locked')) {
+        return
+      }
+
+      setActiveTooltip(null)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [activeTooltip])
+
+  const messageForReason = (reason: LockedReason | null): string => {
+    if (reason === LockedReason.WeeklyUnlock) {
+      return 'Coming next week'
+    }
+    return 'Finish the previous level'
+  }
 
   return (
     <div className="ladder-map-surface br-map-shell" role="list" aria-label="Bonus Rush progression map">
@@ -82,23 +136,45 @@ export function LadderMap({ levels, onSelectLevel }: LadderMapProps) {
 
           {levels.map((level, index) => {
             const point = points[index]
-            const isDisabled = !level.unlocked || level.state === 'Coming Next Week'
+            const isLocked = !level.unlocked || level.state === 'Coming Next Week'
 
             return (
               <button
                 key={level.puzzleId}
                 type="button"
                 role="listitem"
-                className={`ladder-node-base br-waypoint ${isDisabled ? 'disabled' : ''}`}
-                disabled={isDisabled}
+                className={`ladder-node-base br-waypoint ${isLocked ? 'locked disabled' : ''}`}
+                aria-disabled={isLocked}
                 style={{ left: `${point.x}px`, top: `${point.y}px` }}
-                onClick={() => onSelectLevel(level.puzzleId)}
+                onClick={() => {
+                  if (isLocked) {
+                    setActiveTooltip({
+                      puzzleId: level.puzzleId,
+                      text: messageForReason(level.lockReason),
+                      x: point.x,
+                      y: point.y,
+                      placement: point.y < 138 ? 'below' : 'above',
+                    })
+                    return
+                  }
+                  setActiveTooltip(null)
+                  onSelectLevel(level.puzzleId)
+                }}
               >
                 <span className="br-waypoint-level">Lv {level.levelNumber}</span>
                 <MedalBadge tier={level.displayTier} stars={level.displayStars} />
+                {isLocked ? (
+                  <span className="br-waypoint-lock-overlay" aria-hidden="true">
+                    <span className="br-waypoint-lock-icon">🔒</span>
+                  </span>
+                ) : null}
               </button>
             )
           })}
+
+          {activeTooltip ? (
+            <Tooltip text={activeTooltip.text} x={activeTooltip.x} y={activeTooltip.y} placement={activeTooltip.placement} />
+          ) : null}
         </div>
       </div>
     </div>
