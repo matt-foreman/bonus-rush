@@ -17,10 +17,10 @@ interface NodeAnchor {
 }
 
 const NODE_ANCHORS: NodeAnchor[] = [
-  { level: 1, x: 385, y: 1320 },
-  { level: 2, x: 638, y: 1151 },
-  { level: 3, x: 543, y: 814 },
-  { level: 4, x: 692, y: 470 },
+  { level: 1, x: 372, y: 1781 },
+  { level: 2, x: 747, y: 1526 },
+  { level: 3, x: 500, y: 1156 },
+  { level: 4, x: 944, y: 719 },
 ]
 
 interface ScreenPoint {
