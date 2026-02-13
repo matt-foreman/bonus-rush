@@ -75,6 +75,61 @@
   z-index: 3;
 }
 
+.ladder-map-coin-pill {
+  position: absolute;
+  top: 0.72rem;
+  right: 0.72rem;
+  z-index: 9;
+}
+
+.coin-pill.coin-pill-map {
+  min-width: 148px;
+  height: 44px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  padding: 0.2rem 1.05rem 0.2rem 2.3rem;
+  border: 1px solid #125a67;
+  background:
+    linear-gradient(180deg, #1a8798 0%, #116879 56%, #0d4c61 100%);
+  box-shadow:
+    inset 0 1px 0 #7fd6de55,
+    0 5px 12px #032d413a;
+}
+
+.coin-pill.coin-pill-map .coin-pill-icon {
+  position: absolute;
+  left: 0.16rem;
+  top: 50%;
+  width: 2rem;
+  height: 2rem;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  border: 2px solid #ffd765;
+  background:
+    radial-gradient(circle at 34% 28%, #fff7ca 0%, #ffe287 34%, #f7b71f 70%, #e89e00 100%);
+  box-shadow:
+    inset 0 1px 0 #fffbe9a6,
+    0 2px 5px #452d0370;
+}
+
+.coin-pill.coin-pill-map .coin-pill-icon-core {
+  font-size: 1.08rem;
+  color: #d08a00;
+  text-shadow: 0 1px 0 #fff2bf;
+  font-weight: 900;
+}
+
+.coin-pill.coin-pill-map .coin-pill-value {
+  font-size: 1.05rem;
+  color: #f4fafb;
+  text-shadow: 0 1px 0 #001f2c80;
+  font-weight: 900;
+  letter-spacing: 0.01em;
+}
+
 .sparkleLayer {
   position: absolute;
   top: 0;

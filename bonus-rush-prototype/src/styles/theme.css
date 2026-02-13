@@ -178,10 +178,10 @@ p {
 
 .ladder-page {
   display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 0.9rem;
+  grid-template-rows: 1fr;
+  gap: 0;
   min-height: calc(100vh - 2.2rem);
-  --ladder-header-height: 76px;
+  --ladder-header-height: 0px;
 }
 
 .ladder-header {

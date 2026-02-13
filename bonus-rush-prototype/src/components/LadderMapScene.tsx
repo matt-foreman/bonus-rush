@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import bonusRushMapWithLogo from '../assets/bonus_rush_map_with_logo_1080x1920.png'
 import { LockedReason } from '../state/storage'
 import type { TierName } from '../types/bonusRush'
+import { CoinPill } from './CoinPill'
 import { MedalBadge } from './MedalBadge'
 import { Tooltip } from './Tooltip'
 
@@ -74,6 +75,7 @@ export interface LadderMapSceneLevel {
 
 interface LadderMapSceneProps {
   levels: LadderMapSceneLevel[]
+  coins: number
   onSelectLevel: (puzzleId: string) => void
 }
 
@@ -201,7 +203,7 @@ function anchorsToArray(draft: DraftAnchors): NodeAnchor[] {
   }))
 }
 
-export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
+export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const imgRef = useRef<HTMLImageElement | null>(null)
 
@@ -426,6 +428,8 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
             })
           }}
         >
+          <CoinPill className="ladder-map-coin-pill coin-pill-map" coins={coins} />
+
           <img
             ref={imgRef}
             className="mapBg"

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CoinPill, DemoModeButton } from '../components'
+import { DemoModeButton } from '../components'
 import { type LadderMapSceneLevel, LadderMapScene } from '../components/LadderMapScene'
 import { bonusRushPuzzles } from '../data/bonusRush'
 import {
@@ -40,12 +40,11 @@ export function Ladder() {
 
   return (
     <section className="ladder-page">
-      <header className="card ladder-header ladder-header--compact">
-        <h1 className="sr-only">Bonus Rush</h1>
-        <CoinPill className="ladder-coin-pill" coins={inventory.coins} />
-      </header>
-
-      <LadderMapScene levels={levels} onSelectLevel={(puzzleId) => navigate(`/puzzle/${puzzleId}?tier=Bronze`)} />
+      <LadderMapScene
+        levels={levels}
+        coins={inventory.coins}
+        onSelectLevel={(puzzleId) => navigate(`/puzzle/${puzzleId}?tier=Bronze`)}
+      />
       <DemoModeButton
         enabled={demoMode}
         onToggle={() => {
