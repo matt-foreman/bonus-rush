@@ -455,6 +455,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                     left: point.left,
                     top: point.top,
                     transform: 'translate(-50%, -50%)',
+                    pointerEvents: placementMode ? 'none' : 'auto',
                   }}
                   aria-disabled={isLocked}
                   onClick={() => {
@@ -488,7 +489,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
           </div>
 
           {debugEnabled && mapping ? (
-            <>
+            <div className="debugOverlay">
               <div
                 className="mapDebugImageBounds"
                 style={{
@@ -509,11 +510,11 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                   </div>
                 )
               })}
-            </>
+            </div>
           ) : null}
 
           {placementMode && selectedPoint ? (
-            <>
+            <div className="debugOverlay">
               <div
                 className="debugMarker"
                 style={{
@@ -536,8 +537,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                       key={`assign-${level}`}
                       type="button"
                       className="debugAssignButton"
-                      onClick={(event) => {
-                        event.stopPropagation()
+                      onClick={() => {
                         setDraftAnchors((previous) => ({
                           ...previous,
                           [level]: { x: selectedPoint.imageX, y: selectedPoint.imageY },
@@ -549,7 +549,7 @@ export function LadderMapScene({ levels, onSelectLevel }: LadderMapSceneProps) {
                   ))}
                 </div>
               </div>
-            </>
+            </div>
           ) : null}
 
           {activeTooltip && !placementMode ? (

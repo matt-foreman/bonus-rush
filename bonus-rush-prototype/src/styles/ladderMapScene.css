@@ -26,6 +26,7 @@
   width: 100%;
   max-width: 430px;
   margin: 0 auto;
+  pointer-events: auto;
 }
 
 .mapBg {
@@ -400,6 +401,13 @@
   z-index: 7;
 }
 
+.debugOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
 .debugMarker {
   position: absolute;
   width: 10px;
@@ -422,6 +430,7 @@
   font-size: 12px;
   display: grid;
   gap: 0.35rem;
+  pointer-events: none;
 }
 
 .debugAssignRow {
@@ -438,6 +447,7 @@
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .debugControls {
@@ -448,6 +458,7 @@
   display: grid;
   justify-items: end;
   gap: 0.45rem;
+  pointer-events: none;
 }
 
 .debugPlacementToggle {
@@ -467,6 +478,7 @@
   padding: 8px;
   display: grid;
   gap: 0.4rem;
+  pointer-events: none;
 }
 
 .mapDebugStats {
@@ -491,10 +503,16 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .debugCopyStatus {
   font-size: 11px;
+}
+
+.debugButton,
+.debugPlacementToggle {
+  pointer-events: auto;
 }
 
 @media (max-width: 640px) {
