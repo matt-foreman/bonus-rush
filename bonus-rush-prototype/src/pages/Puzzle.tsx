@@ -11,7 +11,16 @@ import {
   WordWheel,
 } from '../components'
 import { bonusRushPuzzles } from '../data/bonusRush'
-import { getInventory, isTierUnlocked, recordRun, type Inventory, type InventoryDelta, updateInventory } from '../state/storage'
+import {
+  getInventory,
+  getProgress,
+  isTierUnlocked,
+  recordRun,
+  setProgress,
+  type Inventory,
+  type InventoryDelta,
+  updateInventory,
+} from '../state/storage'
 import type { TierConfig, TierName } from '../types/bonusRush'
 import { canPlaceWord, getSlots, placeWord, type CrosswordSlot } from '../utils/crossword'
 import { normalizeWord } from '../utils/wordGame'
@@ -235,14 +244,22 @@ export function Puzzle() {
       return 'Bronze'
     }
 
+    const progress = getProgress()[puzzle.id]
+    const isMastered = (tier: TierName) => {
+      const bestFound = progress?.[tier]?.bestFound ?? 0
+      return bestFound >= puzzle.tiers[tier].allowedWords.length
+    }
+
+    const firstPlayableTier = tiers.find((tier) => isTierUnlocked(puzzle.id, tier) && !isMastered(tier))
+
     if (tiers.includes(requestedTier as TierName)) {
       const tier = requestedTier as TierName
-      if (isTierUnlocked(puzzle.id, tier)) {
+      if (isTierUnlocked(puzzle.id, tier) && !isMastered(tier)) {
         return tier
       }
     }
 
-    return tiers.find((tier) => isTierUnlocked(puzzle.id, tier)) ?? 'Bronze'
+    return firstPlayableTier ?? tiers.find((tier) => isTierUnlocked(puzzle.id, tier)) ?? 'Bronze'
   }, [puzzle, requestedTier])
 
   const [activeTier, setActiveTier] = useState<TierName>(resolvedTier)
@@ -417,13 +434,13 @@ export function Puzzle() {
   const totalFound = foundWordsAll.size
   const totalAvailable = allowedWordsList.length
   const missingWords = allowedWordsList.filter((word) => !foundWordsAll.has(word))
-  const isTierMastered = totalAvailable > 0 && totalFound === totalAvailable
+  const isRunComplete = totalAvailable > 0 && totalFound === totalAvailable
   const completionStars = starsForFound(totalFound, tierConfig)
   const completionRewardDelta = rewardsForTierAndStars(activeTier, completionStars)
   const nextTier: TierName | null = activeTier === 'Bronze' ? 'Silver' : activeTier === 'Silver' ? 'Gold' : null
 
   useEffect(() => {
-    if (!puzzle || !tierConfig || !isTierMastered || showCompletionDialog) {
+    if (!puzzle || !tierConfig || !isRunComplete || showCompletionDialog) {
       return
     }
 
@@ -446,7 +463,7 @@ export function Puzzle() {
   }, [
     puzzle,
     tierConfig,
-    isTierMastered,
+    isRunComplete,
     showCompletionDialog,
     activeTier,
     runSessionId,
@@ -456,7 +473,9 @@ export function Puzzle() {
   ])
 
   const switchTier = (tier: TierName) => {
-    if (!isTierUnlocked(puzzle.id, tier)) {
+    const bestFound = getProgress()[puzzle.id]?.[tier]?.bestFound ?? 0
+    const isMastered = bestFound >= puzzle.tiers[tier].allowedWords.length
+    if (!isTierUnlocked(puzzle.id, tier) || isMastered) {
       return
     }
 
@@ -648,6 +667,22 @@ export function Puzzle() {
     recordRun(puzzle.id, activeTier, nextFound, starsForFound(nextFound, tierConfig))
   }
 
+  const resetAllProgressDebug = () => {
+    setProgress({})
+    for (const puzzleEntry of bonusRushPuzzles) {
+      for (const tier of tiers) {
+        window.localStorage.removeItem(timerStorageKey(puzzleEntry.id, tier))
+      }
+    }
+    setRunGrid(buildRunGrid(tierConfig))
+    setCurrentWord('')
+    setCrosswordWords([])
+    setBonusWords([])
+    setLatestBonusWord(null)
+    setFeedback('All tier progress has been reset.')
+    setDebugOutput('Progress reset for all levels and tiers.')
+  }
+
   return (
     <section className={`puzzle-page card page tier-accent-${activeTier.toLowerCase()}`}>
       <header className="puzzle-header">
@@ -667,7 +702,9 @@ export function Puzzle() {
 
       <div className="tier-tabs" role="tablist" aria-label="Tier selection">
         {tiers.map((tier) => {
-          const locked = !isTierUnlocked(puzzle.id, tier)
+          const bestFound = getProgress()[puzzle.id]?.[tier]?.bestFound ?? 0
+          const mastered = bestFound >= puzzle.tiers[tier].allowedWords.length
+          const locked = !isTierUnlocked(puzzle.id, tier) || mastered
           return (
             <button
               key={tier}
@@ -803,6 +840,7 @@ export function Puzzle() {
             <div className="puzzle-debug-actions">
               <SecondaryButton onClick={fillCrosswordDebug}>Autofill Puzzle Words</SecondaryButton>
               <SecondaryButton onClick={fillBonusDebug}>Autofill Bonus Words</SecondaryButton>
+              <SecondaryButton onClick={resetAllProgressDebug}>Reset All Progress</SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(allowedWordsList, null, 2))}>allowedWords</SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(crosswordWordsList, null, 2))}>crosswordWords</SecondaryButton>
               <SecondaryButton
@@ -821,6 +859,7 @@ export function Puzzle() {
               </SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(missingWords, null, 2))}>missingWords</SecondaryButton>
             </div>
+            <p className="puzzle-debug-warning">⚠️ warning: this will delete all progress for all tiers on all levels</p>
             <pre className="puzzle-debug-output">{debugOutput || 'Select a command to inspect values.'}</pre>
             <PrimaryButton onClick={() => setShowDebugMenu(false)}>Close</PrimaryButton>
           </section>

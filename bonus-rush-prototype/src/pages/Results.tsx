@@ -193,6 +193,7 @@ export function Results() {
   const puzzleIndex = bonusRushPuzzles.findIndex((entry) => entry.id === puzzle.id)
   const nextPuzzle = puzzleIndex >= 0 ? bonusRushPuzzles[puzzleIndex + 1] : undefined
   const nextPuzzleUnlocked = nextPuzzle ? isPuzzleUnlocked(nextPuzzle.id) : false
+  const tierMastered = found >= tierConfig.allowedWords.length
 
   return (
     <section className="results-page card page">
@@ -253,7 +254,9 @@ export function Results() {
       </section>
 
       <div className="results-actions">
-        <PrimaryButton onClick={() => navigate(`/puzzle/${puzzle.id}?tier=${tier}`)}>Replay</PrimaryButton>
+        <PrimaryButton onClick={() => navigate(`/puzzle/${puzzle.id}?tier=${tier}`)} disabled={tierMastered}>
+          Replay
+        </PrimaryButton>
         <PrimaryButton
           onClick={() => nextPuzzle && navigate(`/puzzle/${nextPuzzle.id}?tier=Bronze`)}
           disabled={!nextPuzzle || !nextPuzzleUnlocked}

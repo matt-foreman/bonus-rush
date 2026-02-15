@@ -7,15 +7,39 @@ import {
   getInventory,
   getLockReason,
   getPuzzleMasterySummary,
+  getProgress,
   getPuzzleUnlockStatus,
   isDemoModeEnabled,
+  isTierUnlocked,
   setDemoModeEnabled,
 } from '../state/storage'
+import type { TierName } from '../types/bonusRush'
 
 function resolveNodeUnlocked(puzzleId: string): boolean {
   const unlockStatus = getPuzzleUnlockStatus(puzzleId)
   return unlockStatus.isUnlocked && !unlockStatus.isComingNextWeek
 }
+
+const tierOrder: TierName[] = ['Bronze', 'Silver', 'Gold']
+
+function resolveEntryTier(puzzleId: string): TierName {
+  const puzzle = bonusRushPuzzles.find((item) => item.id === puzzleId)
+  if (!puzzle) {
+    return 'Bronze'
+  }
+
+  const progress = getProgress()[puzzleId]
+  const nextTier = tierOrder.find((tier) => {
+    if (!isTierUnlocked(puzzleId, tier)) {
+      return false
+    }
+    const bestFound = progress?.[tier]?.bestFound ?? 0
+    return bestFound < puzzle.tiers[tier].allowedWords.length
+  })
+
+  return nextTier ?? (tierOrder.find((tier) => isTierUnlocked(puzzleId, tier)) ?? 'Bronze')
+}
+
 export function Ladder() {
   const navigate = useNavigate()
   const [demoMode, setDemoMode] = useState(() => isDemoModeEnabled())
@@ -43,7 +67,7 @@ export function Ladder() {
       <LadderMapScene
         levels={levels}
         coins={inventory.coins}
-        onSelectLevel={(puzzleId) => navigate(`/puzzle/${puzzleId}?tier=Bronze`)}
+        onSelectLevel={(puzzleId) => navigate(`/puzzle/${puzzleId}?tier=${resolveEntryTier(puzzleId)}`)}
       />
       <DemoModeButton
         enabled={demoMode}

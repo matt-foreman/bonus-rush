@@ -1101,6 +1101,18 @@ p {
   gap: 0.5rem;
 }
 
+.replay-notice-modal {
+  width: min(520px, 100%);
+  padding: 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.replay-notice-modal h2,
+.replay-notice-modal p {
+  margin: 0;
+}
+
 .tier-complete-modal {
   width: min(560px, 100%);
   padding: 1rem;
@@ -1161,6 +1173,13 @@ p {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.45rem;
+}
+
+.puzzle-debug-warning {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #8a2f2f;
 }
 
 .puzzle-debug-output {
