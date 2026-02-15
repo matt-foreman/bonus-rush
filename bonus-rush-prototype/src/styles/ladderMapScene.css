@@ -4,7 +4,7 @@
 }
 
 .mapSceneHost.single {
-  height: calc(100vh - var(--ladder-header-height));
+  height: 100%;
 }
 
 .mapScene {
@@ -24,8 +24,6 @@
 .mapSceneContent {
   position: relative;
   width: 100%;
-  max-width: 430px;
-  margin: 0 auto;
   pointer-events: auto;
 }
 
@@ -594,11 +592,7 @@
 
 @media (max-width: 640px) {
   .mapSceneHost.single {
-    height: calc(100vh - var(--ladder-header-height));
-  }
-
-  .mapSceneContent {
-    max-width: 390px;
+    height: 100%;
   }
 
   .mapNode {

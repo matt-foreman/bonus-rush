@@ -18,6 +18,7 @@ import { isAllowedWord, isValidWord, normalizeWord } from '../utils/wordGame'
 const START_TIME_SECONDS = 180
 const tiers: TierName[] = ['Bronze', 'Silver', 'Gold']
 const coinCostByTier: Record<TierName, number> = { Bronze: 50, Silver: 100, Gold: 150 }
+const TIMER_STORAGE_PREFIX = 'bonusRush.timerEndsAt'
 
 function buildRunGrid(tier: TierConfig): string[][] {
   const fixedLetters = new Set(tier.addedBoardLetters.map((letter) => letter.toUpperCase()))
@@ -57,6 +58,61 @@ function starsForFound(found: number, tier: TierConfig): number {
   return 0
 }
 
+function timerStorageKey(puzzleId: string, tier: TierName): string {
+  return `${TIMER_STORAGE_PREFIX}.${puzzleId}.${tier}`
+}
+
+function readStoredTimerSeconds(puzzleId: string, tier: TierName): number | null {
+  const raw = window.localStorage.getItem(timerStorageKey(puzzleId, tier))
+  if (!raw) {
+    return null
+  }
+
+  const endsAt = Number(raw)
+  if (!Number.isFinite(endsAt) || endsAt <= 0) {
+    window.localStorage.removeItem(timerStorageKey(puzzleId, tier))
+    return null
+  }
+
+  const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000))
+  if (remaining === 0) {
+    window.localStorage.removeItem(timerStorageKey(puzzleId, tier))
+  }
+  return remaining
+}
+
+function writeStoredTimerSeconds(puzzleId: string, tier: TierName, remainingSeconds: number): void {
+  const key = timerStorageKey(puzzleId, tier)
+  if (remainingSeconds <= 0) {
+    window.localStorage.removeItem(key)
+    return
+  }
+
+  const endsAt = Date.now() + remainingSeconds * 1000
+  window.localStorage.setItem(key, String(endsAt))
+}
+
+function getInitialStoredTimerSeconds(puzzleId: string, tier: TierName): number {
+  const key = timerStorageKey(puzzleId, tier)
+  const raw = window.localStorage.getItem(key)
+  if (!raw) {
+    writeStoredTimerSeconds(puzzleId, tier, START_TIME_SECONDS)
+    return START_TIME_SECONDS
+  }
+
+  const endsAt = Number(raw)
+  if (!Number.isFinite(endsAt) || endsAt <= 0) {
+    window.localStorage.removeItem(key)
+    return 0
+  }
+
+  const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000))
+  if (remaining === 0) {
+    window.localStorage.removeItem(key)
+  }
+  return remaining
+}
+
 export function Puzzle() {
   const navigate = useNavigate()
   const { puzzleId } = useParams<{ puzzleId: string }>()
@@ -91,6 +147,8 @@ export function Puzzle() {
   const [rewardVideosUsed, setRewardVideosUsed] = useState(0)
   const [iapUsed, setIapUsed] = useState(false)
   const [showTimeExpiredModal, setShowTimeExpiredModal] = useState(false)
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false)
+  const [pausedSeconds, setPausedSeconds] = useState<number | null>(null)
   const [feedback, setFeedback] = useState('')
 
   const tierConfig = puzzle?.tiers[activeTier]
@@ -117,26 +175,27 @@ export function Puzzle() {
     setIapUsed(false)
     setShowTimeExpiredModal(false)
     setFeedback('')
-    setSecondsLeft(START_TIME_SECONDS)
+    setSecondsLeft(getInitialStoredTimerSeconds(puzzle.id, activeTier))
   }, [puzzle, tierConfig, activeTier])
 
   useEffect(() => {
-    if (!tierConfig || secondsLeft <= 0) {
+    if (!tierConfig || !puzzle || secondsLeft <= 0 || showLeaveDialog) {
       return
     }
 
     const timer = window.setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          window.clearInterval(timer)
-          return 0
-        }
-        return prev - 1
-      })
+      const remaining = readStoredTimerSeconds(puzzle.id, activeTier)
+      if (remaining === null) {
+        window.clearInterval(timer)
+        setSecondsLeft(0)
+        return
+      }
+
+      setSecondsLeft(remaining)
     }, 1000)
 
     return () => window.clearInterval(timer)
-  }, [tierConfig, activeTier, secondsLeft])
+  }, [tierConfig, activeTier, secondsLeft, puzzle, showLeaveDialog])
 
   useEffect(() => {
     if (!tierConfig) {
@@ -159,6 +218,10 @@ export function Puzzle() {
       navigate(`/results/${puzzle?.id ?? ''}?${params.toString()}`)
     }
   }, [secondsLeft, bonusWords.length, crosswordWords.length, activeTier, tierConfig, navigate, puzzle?.id])
+
+  useEffect(() => {
+    setCurrentWord('')
+  }, [crosswordWords.length, bonusWords.length])
 
   if (!puzzle || !tierConfig) {
     return (
@@ -240,12 +303,39 @@ export function Puzzle() {
     navigate(`/results/${puzzle.id}?${params.toString()}`)
   }
 
+  const openLeaveDialog = () => {
+    setPausedSeconds(secondsLeft)
+    setShowLeaveDialog(true)
+  }
+
+  const keepPlaying = () => {
+    const resumeSeconds = pausedSeconds ?? secondsLeft
+    setSecondsLeft(resumeSeconds)
+    writeStoredTimerSeconds(puzzle.id, activeTier, resumeSeconds)
+    setShowLeaveDialog(false)
+    setPausedSeconds(null)
+  }
+
+  const loseProgressAndLeave = () => {
+    window.localStorage.removeItem(timerStorageKey(puzzle.id, activeTier))
+    setShowLeaveDialog(false)
+    setPausedSeconds(null)
+    setCurrentWord('')
+    setCrosswordWords([])
+    setBonusWords([])
+    setLatestBonusWord(null)
+    setFeedback('')
+    navigate('/')
+  }
+
   const addExtraTimeFromRewardVideo = () => {
     if (rewardVideosUsed >= 3) {
       return
     }
+    const nextSeconds = secondsLeft + 30
     setRewardVideosUsed((value) => value + 1)
-    setSecondsLeft((value) => value + 30)
+    setSecondsLeft(nextSeconds)
+    writeStoredTimerSeconds(puzzle.id, activeTier, nextSeconds)
     setShowTimeExpiredModal(false)
   }
 
@@ -256,8 +346,10 @@ export function Puzzle() {
     }
 
     const next = updateInventory({ coins: -cost })
+    const nextSeconds = secondsLeft + 30
     setInventory(next)
-    setSecondsLeft((value) => value + 30)
+    setSecondsLeft(nextSeconds)
+    writeStoredTimerSeconds(puzzle.id, activeTier, nextSeconds)
     setShowTimeExpiredModal(false)
   }
 
@@ -265,15 +357,17 @@ export function Puzzle() {
     if (iapUsed) {
       return
     }
+    const nextSeconds = secondsLeft + 60
     setIapUsed(true)
-    setSecondsLeft((value) => value + 60)
+    setSecondsLeft(nextSeconds)
+    writeStoredTimerSeconds(puzzle.id, activeTier, nextSeconds)
     setShowTimeExpiredModal(false)
   }
 
   return (
     <section className={`puzzle-page card page tier-accent-${activeTier.toLowerCase()}`}>
       <header className="puzzle-header">
-        <SecondaryButton onClick={() => navigate('/')}>Back</SecondaryButton>
+        <SecondaryButton onClick={openLeaveDialog}>Back</SecondaryButton>
         <TierBadge tier={activeTier} />
         <span className="timer-pill" aria-label="Timer">
           {formatTimer(secondsLeft)}
@@ -358,6 +452,19 @@ export function Puzzle() {
         onIap={addExtraTimeFromIap}
         onDecline={closeRunToResults}
       />
+
+      {showLeaveDialog ? (
+        <div className="modal-backdrop" role="presentation">
+          <section className="leave-puzzle-modal card" role="dialog" aria-modal="true" aria-labelledby="leave-puzzle-title">
+            <h2 id="leave-puzzle-title">Leave puzzle?</h2>
+            <p>Leaving now will reset this run's progress and timer until you restart this level.</p>
+            <div className="leave-puzzle-actions">
+              <PrimaryButton onClick={loseProgressAndLeave}>lose progress</PrimaryButton>
+              <SecondaryButton onClick={keepPlaying}>keep playing</SecondaryButton>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   )
 }
