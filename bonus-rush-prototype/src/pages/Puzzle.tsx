@@ -246,8 +246,8 @@ export function Puzzle() {
 
     const progress = getProgress()[puzzle.id]
     const isMastered = (tier: TierName) => {
-      const bestFound = progress?.[tier]?.bestFound ?? 0
-      return bestFound >= puzzle.tiers[tier].allowedWords.length
+      const bestStars = progress?.[tier]?.bestStars ?? 0
+      return bestStars >= 3
     }
 
     const firstPlayableTier = tiers.find((tier) => isTierUnlocked(puzzle.id, tier) && !isMastered(tier))
@@ -473,8 +473,8 @@ export function Puzzle() {
   ])
 
   const switchTier = (tier: TierName) => {
-    const bestFound = getProgress()[puzzle.id]?.[tier]?.bestFound ?? 0
-    const isMastered = bestFound >= puzzle.tiers[tier].allowedWords.length
+    const bestStars = getProgress()[puzzle.id]?.[tier]?.bestStars ?? 0
+    const isMastered = bestStars >= 3
     if (!isTierUnlocked(puzzle.id, tier) || isMastered) {
       return
     }
@@ -702,8 +702,8 @@ export function Puzzle() {
 
       <div className="tier-tabs" role="tablist" aria-label="Tier selection">
         {tiers.map((tier) => {
-          const bestFound = getProgress()[puzzle.id]?.[tier]?.bestFound ?? 0
-          const mastered = bestFound >= puzzle.tiers[tier].allowedWords.length
+          const bestStars = getProgress()[puzzle.id]?.[tier]?.bestStars ?? 0
+          const mastered = bestStars >= 3
           const locked = !isTierUnlocked(puzzle.id, tier) || mastered
           return (
             <button

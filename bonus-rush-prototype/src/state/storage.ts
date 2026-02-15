@@ -259,10 +259,10 @@ export function isTierUnlocked(puzzleId: string, tier: TierName): boolean {
   const puzzleProgress = progress[puzzleId]
 
   if (tier === 'Silver') {
-    return (puzzleProgress?.Bronze?.bestStars ?? 0) >= 1
+    return (puzzleProgress?.Bronze?.bestStars ?? 0) >= 3
   }
 
-  return (puzzleProgress?.Silver?.bestStars ?? 0) >= 1
+  return (puzzleProgress?.Silver?.bestStars ?? 0) >= 3
 }
 
 export function isPuzzleUnlocked(puzzleId: string): boolean {

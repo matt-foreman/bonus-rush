@@ -193,7 +193,7 @@ export function Results() {
   const puzzleIndex = bonusRushPuzzles.findIndex((entry) => entry.id === puzzle.id)
   const nextPuzzle = puzzleIndex >= 0 ? bonusRushPuzzles[puzzleIndex + 1] : undefined
   const nextPuzzleUnlocked = nextPuzzle ? isPuzzleUnlocked(nextPuzzle.id) : false
-  const tierMastered = found >= tierConfig.allowedWords.length
+  const tierMastered = (getProgress()[puzzle.id]?.[tier]?.bestStars ?? stars) >= 3
 
   return (
     <section className="results-page card page">
