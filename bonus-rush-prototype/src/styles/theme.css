@@ -207,6 +207,8 @@ p {
   gap: 0;
   min-height: calc(100vh - 2.2rem);
   --ladder-header-height: 0px;
+  position: relative;
+  overflow: hidden;
 }
 
 .ladder-header {
@@ -1103,9 +1105,12 @@ p {
 
 .tier-results-modal {
   width: min(620px, 100%);
+  max-width: 100%;
+  max-height: calc(100% - 1rem);
   padding: 1rem;
   display: grid;
   gap: 0.75rem;
+  overflow: auto;
 }
 
 .tier-results-modal h2 {
@@ -1141,6 +1146,13 @@ p {
 .tier-results-actions {
   display: grid;
   gap: 0.5rem;
+}
+
+.ladder-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 18;
+  border-radius: inherit;
 }
 
 .replay-notice-modal {

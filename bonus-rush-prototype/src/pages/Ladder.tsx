@@ -81,6 +81,38 @@ export function Ladder() {
       return { tier, stars, unlocked, replayable: unlocked && stars < MASTERY_STARS }
     })
   }, [modalPuzzle, progress])
+  const modalAllMastered = modalRows.length > 0 && modalRows.every((row) => row.stars >= MASTERY_STARS)
+
+  const nextLevelTarget = useMemo(() => {
+    if (!modalPuzzle) {
+      return null
+    }
+
+    const currentIndex = bonusRushPuzzles.findIndex((puzzle) => puzzle.id === modalPuzzle.id)
+    if (currentIndex < 0) {
+      return null
+    }
+
+    const nextLevel = bonusRushPuzzles[currentIndex + 1]
+    if (!nextLevel || !resolveNodeUnlocked(nextLevel.id)) {
+      return null
+    }
+
+    const nextProgress = progress[nextLevel.id]
+    const nextTier = tierOrder.find((tier) => {
+      if (!isTierUnlocked(nextLevel.id, tier)) {
+        return false
+      }
+      const stars = nextProgress?.[tier]?.bestStars ?? 0
+      return stars < MASTERY_STARS
+    })
+
+    if (!nextTier) {
+      return null
+    }
+
+    return { puzzleId: nextLevel.id, tier: nextTier }
+  }, [modalPuzzle, progress, demoMode])
 
   const hasMasteredAnyTier = (puzzleId: string): boolean =>
     tierOrder.some((tier) => (progress[puzzleId]?.[tier]?.bestStars ?? 0) >= MASTERY_STARS)
@@ -106,7 +138,7 @@ export function Ladder() {
       />
 
       {modalPuzzle ? (
-        <div className="modal-backdrop" role="presentation">
+        <div className="modal-backdrop ladder-modal-backdrop" role="presentation">
           <section className="tier-results-modal card" role="dialog" aria-modal="true" aria-labelledby="tier-results-title">
             <h2 id="tier-results-title">{modalPuzzle.title} Tier Results</h2>
             <div className="tier-results-rows">
@@ -125,7 +157,20 @@ export function Ladder() {
               ))}
             </div>
             <div className="tier-results-actions">
-              <PrimaryButton onClick={() => openPuzzle(modalPuzzle.id)}>Play Next Available Tier</PrimaryButton>
+              <PrimaryButton
+                onClick={() => {
+                  if (modalAllMastered) {
+                    if (nextLevelTarget) {
+                      openPuzzle(nextLevelTarget.puzzleId, nextLevelTarget.tier)
+                    }
+                    return
+                  }
+                  openPuzzle(modalPuzzle.id)
+                }}
+                disabled={modalAllMastered && !nextLevelTarget}
+              >
+                {modalAllMastered ? 'Play Next Level' : 'Play Next Available Tier'}
+              </PrimaryButton>
               <SecondaryButton onClick={() => setResultsModalPuzzleId(null)}>Close</SecondaryButton>
             </div>
           </section>
