@@ -13,7 +13,7 @@ import {
 import { bonusRushPuzzles } from '../data/bonusRush'
 import { getInventory, isTierUnlocked, recordRun, type Inventory, updateInventory } from '../state/storage'
 import type { TierConfig, TierName } from '../types/bonusRush'
-import { findMatchingSlot, placeWord } from '../utils/crossword'
+import { canPlaceWord, getSlots, placeWord, type CrosswordSlot } from '../utils/crossword'
 import { normalizeWord } from '../utils/wordGame'
 
 const START_TIME_SECONDS = 180
@@ -114,6 +114,40 @@ function getInitialStoredTimerSeconds(puzzleId: string, tier: TierName): number 
     window.localStorage.removeItem(key)
   }
   return remaining
+}
+
+function wordFromGridSlot(grid: string[][], slot: CrosswordSlot): string {
+  const letters: string[] = []
+  for (let index = 0; index < slot.length; index += 1) {
+    const row = slot.direction === 'vertical' ? slot.row + index : slot.row
+    const col = slot.direction === 'horizontal' ? slot.col + index : slot.col
+    letters.push(grid[row]?.[col] ?? '')
+  }
+  return normalizeWord(letters.join(''))
+}
+
+function findTemplateSlotForWord(templateGrid: string[][], runGrid: string[][], word: string): CrosswordSlot | null {
+  const normalizedWord = normalizeWord(word)
+  if (!normalizedWord) {
+    return null
+  }
+
+  const templateSlots = getSlots(templateGrid)
+  for (const slot of templateSlots) {
+    if (slot.length !== normalizedWord.length) {
+      continue
+    }
+
+    if (wordFromGridSlot(templateGrid, slot) !== normalizedWord) {
+      continue
+    }
+
+    if (canPlaceWord(runGrid, normalizedWord, slot)) {
+      return slot
+    }
+  }
+
+  return null
 }
 
 export function Puzzle() {
@@ -361,7 +395,7 @@ export function Puzzle() {
     }
 
     const shouldTryCrossword = crosswordWordsSet.has(normalized)
-    const matchingSlot = shouldTryCrossword ? findMatchingSlot(runGrid, normalized) : null
+    const matchingSlot = shouldTryCrossword ? findTemplateSlotForWord(tierConfig.crosswordGrid, runGrid, normalized) : null
 
     if (shouldTryCrossword && matchingSlot) {
       const nextGrid = placeWord(runGrid, normalized, matchingSlot)
@@ -462,7 +496,7 @@ export function Puzzle() {
       if (foundWordsAll.has(word)) {
         continue
       }
-      const slot = findMatchingSlot(nextGrid, word)
+      const slot = findTemplateSlotForWord(tierConfig.crosswordGrid, nextGrid, word)
       if (!slot) {
         continue
       }

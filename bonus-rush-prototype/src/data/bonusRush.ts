@@ -8,7 +8,7 @@ export const bonusRushPuzzles: PuzzleConfig[] = [
     tiers: {
       Bronze: {
         name: 'Bronze',
-        wheelLetters: ['B', 'A', 'R', 'N', 'S', 'T'],
+        wheelLetters: ['B', 'A', 'R', 'N'],
         addedBoardLetters: [],
         totalWords: 6,
         bonusWordsTotal: 3,
@@ -28,7 +28,7 @@ export const bonusRushPuzzles: PuzzleConfig[] = [
       },
       Silver: {
         name: 'Silver',
-        wheelLetters: ['B', 'A', 'R', 'N', 'S', 'T'],
+        wheelLetters: ['B', 'A', 'R', 'N', 'S'],
         addedBoardLetters: ['S'],
         totalWords: 12,
         bonusWordsTotal: 8,
