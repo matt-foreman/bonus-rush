@@ -228,7 +228,7 @@ export function Puzzle() {
     }
 
     const foundCount = new Set([...crosswordWords, ...bonusWords]).size
-    const levelComplete = foundCount === (allowedWordsList.length > 0 ? allowedWordsList.length : tierConfig.totalWords)
+    const levelComplete = foundCount === allowedWordsList.length
     if (secondsLeft === 0 && !levelComplete) {
       setShowTimeExpiredModal(true)
       return
@@ -310,7 +310,7 @@ export function Puzzle() {
 
   const foundWordsAll = new Set([...crosswordWords, ...bonusWords])
   const totalFound = foundWordsAll.size
-  const totalAvailable = allowedWordsList.length > 0 ? allowedWordsList.length : tierConfig.totalWords
+  const totalAvailable = allowedWordsList.length
   const missingWords = allowedWordsList.filter((word) => !foundWordsAll.has(word))
 
   const switchTier = (tier: TierName) => {

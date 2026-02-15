@@ -120,7 +120,7 @@ export function Results() {
     if (!puzzle || !tierConfig) {
       return 0
     }
-    const totalAvailable = tierConfig.allowedWords?.length ?? tierConfig.totalWords
+    const totalAvailable = tierConfig.allowedWords.length
 
     const fromQuery = Number(searchParams.get('found'))
     if (Number.isFinite(fromQuery)) {
