@@ -11,7 +11,7 @@ import {
   WordWheel,
 } from '../components'
 import { bonusRushPuzzles } from '../data/bonusRush'
-import { getInventory, isTierUnlocked, recordRun, type Inventory, updateInventory } from '../state/storage'
+import { getInventory, isTierUnlocked, recordRun, type Inventory, type InventoryDelta, updateInventory } from '../state/storage'
 import type { TierConfig, TierName } from '../types/bonusRush'
 import { canPlaceWord, getSlots, placeWord, type CrosswordSlot } from '../utils/crossword'
 import { normalizeWord } from '../utils/wordGame'
@@ -22,6 +22,7 @@ const tiers: TierName[] = ['Bronze', 'Silver', 'Gold']
 const coinCostByTier: Record<TierName, number> = { Bronze: 50, Silver: 100, Gold: 150 }
 const TIMER_STORAGE_PREFIX = 'bonusRush.timerEndsAt'
 const DEBUG_AVAILABLE = import.meta.env.DEV
+const CLAIMED_RUNS_KEY = 'bonus-rush.claimed-runs.v1'
 
 function buildRunGrid(tier: TierConfig): string[][] {
   const fixedLetters = new Set(tier.addedBoardLetters.map((letter) => letter.toUpperCase()))
@@ -116,6 +117,77 @@ function getInitialStoredTimerSeconds(puzzleId: string, tier: TierName): number 
   return remaining
 }
 
+function rewardsForTierAndStars(tier: TierName, stars: number): InventoryDelta {
+  if (stars <= 0) {
+    return {}
+  }
+
+  const table: Record<TierName, Record<number, InventoryDelta>> = {
+    Bronze: {
+      1: { coins: 100 },
+      2: { coins: 150, hints: 1 },
+      3: { coins: 200, hints: 1, wildlifeTokens: 1 },
+    },
+    Silver: {
+      1: { coins: 150, hints: 1 },
+      2: { coins: 200, hints: 2, wildlifeTokens: 1 },
+      3: { coins: 250, wildlifeTokens: 1, portraitProgress: 1 },
+    },
+    Gold: {
+      1: { coins: 200, hints: 2 },
+      2: { coins: 250, wildlifeTokens: 1, portraitProgress: 1 },
+      3: { coins: 300, wildlifeTokens: 1, premiumPortraitDrops: 1 },
+    },
+  }
+
+  return table[tier][stars] ?? {}
+}
+
+function rewardRows(delta: InventoryDelta): string[] {
+  const rows: string[] = []
+  if (delta.coins) {
+    rows.push(`+${delta.coins} coins`)
+  }
+  if (delta.hints) {
+    rows.push(`+${delta.hints} hint${delta.hints > 1 ? 's' : ''}`)
+  }
+  if (delta.wildlifeTokens) {
+    rows.push(`+${delta.wildlifeTokens} wildlife token`)
+  }
+  if (delta.portraitProgress) {
+    rows.push(`+${delta.portraitProgress} portrait progress`)
+  }
+  if (delta.premiumPortraitDrops) {
+    rows.push(`+${delta.premiumPortraitDrops} premium portrait drop`)
+  }
+  return rows
+}
+
+function getClaimedRunIds(): Set<string> {
+  if (typeof window === 'undefined') {
+    return new Set()
+  }
+
+  try {
+    const raw = window.localStorage.getItem(CLAIMED_RUNS_KEY)
+    if (!raw) {
+      return new Set()
+    }
+    const parsed = JSON.parse(raw) as string[]
+    return new Set(parsed)
+  } catch {
+    return new Set()
+  }
+}
+
+function saveClaimedRunIds(ids: Set<string>): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(CLAIMED_RUNS_KEY, JSON.stringify([...ids]))
+}
+
 function wordFromGridSlot(grid: string[][], slot: CrosswordSlot): string {
   const letters: string[] = []
   for (let index = 0; index < slot.length; index += 1) {
@@ -192,6 +264,10 @@ export function Puzzle() {
   const [showDebugMenu, setShowDebugMenu] = useState(false)
   const [debugOutput, setDebugOutput] = useState('')
   const [feedback, setFeedback] = useState('')
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false)
+  const [completionRewards, setCompletionRewards] = useState<string[]>([])
+  const [completionRunClaimId, setCompletionRunClaimId] = useState('')
+  const [runSessionId, setRunSessionId] = useState(() => Date.now())
 
   const tierConfig = puzzle?.tiers[activeTier]
   const allowedWordsList = useMemo(
@@ -234,11 +310,15 @@ export function Puzzle() {
     setShowDebugMenu(false)
     setDebugOutput('')
     setFeedback('')
+    setShowCompletionDialog(false)
+    setCompletionRewards([])
+    setCompletionRunClaimId('')
+    setRunSessionId(Date.now())
     setSecondsLeft(getInitialStoredTimerSeconds(puzzle.id, activeTier))
   }, [puzzle, tierConfig, activeTier])
 
   useEffect(() => {
-    if (!tierConfig || !puzzle || secondsLeft <= 0 || showLeaveDialog) {
+    if (!tierConfig || !puzzle || secondsLeft <= 0 || showLeaveDialog || showCompletionDialog) {
       return
     }
 
@@ -254,7 +334,7 @@ export function Puzzle() {
     }, 1000)
 
     return () => window.clearInterval(timer)
-  }, [tierConfig, activeTier, secondsLeft, puzzle, showLeaveDialog])
+  }, [tierConfig, activeTier, secondsLeft, puzzle, showLeaveDialog, showCompletionDialog])
 
   useEffect(() => {
     if (!tierConfig) {
@@ -268,16 +348,7 @@ export function Puzzle() {
       return
     }
 
-    if (secondsLeft === 0 && levelComplete) {
-      const found = foundCount
-      const params = new URLSearchParams({
-        tier: activeTier,
-        found: String(found),
-        run: String(Date.now()),
-      })
-      navigate(`/results/${puzzle?.id ?? ''}?${params.toString()}`)
-    }
-  }, [secondsLeft, bonusWords, crosswordWords, activeTier, tierConfig, navigate, puzzle?.id, allowedWordsList.length])
+  }, [secondsLeft, bonusWords, crosswordWords, activeTier, tierConfig, allowedWordsList.length])
 
   useEffect(() => {
     setCurrentWord('')
@@ -346,6 +417,43 @@ export function Puzzle() {
   const totalFound = foundWordsAll.size
   const totalAvailable = allowedWordsList.length
   const missingWords = allowedWordsList.filter((word) => !foundWordsAll.has(word))
+  const isTierMastered = totalAvailable > 0 && totalFound === totalAvailable
+  const completionStars = starsForFound(totalFound, tierConfig)
+  const completionRewardDelta = rewardsForTierAndStars(activeTier, completionStars)
+  const nextTier: TierName | null = activeTier === 'Bronze' ? 'Silver' : activeTier === 'Silver' ? 'Gold' : null
+
+  useEffect(() => {
+    if (!puzzle || !tierConfig || !isTierMastered || showCompletionDialog) {
+      return
+    }
+
+    const runClaimId = `${puzzle.id}:${activeTier}:${runSessionId}`
+    const claimed = getClaimedRunIds()
+    if (!claimed.has(runClaimId) && completionStars > 0) {
+      const nextInventory = updateInventory(completionRewardDelta)
+      claimed.add(runClaimId)
+      saveClaimedRunIds(claimed)
+      setInventory(nextInventory)
+    } else {
+      setInventory(getInventory())
+    }
+
+    recordRun(puzzle.id, activeTier, totalFound, completionStars)
+    window.localStorage.removeItem(timerStorageKey(puzzle.id, activeTier))
+    setCompletionRewards(rewardRows(completionRewardDelta))
+    setCompletionRunClaimId(runClaimId)
+    setShowCompletionDialog(true)
+  }, [
+    puzzle,
+    tierConfig,
+    isTierMastered,
+    showCompletionDialog,
+    activeTier,
+    runSessionId,
+    completionStars,
+    completionRewardDelta,
+    totalFound,
+  ])
 
   const switchTier = (tier: TierName) => {
     if (!isTierUnlocked(puzzle.id, tier)) {
@@ -425,6 +533,24 @@ export function Puzzle() {
       run: String(Date.now()),
     })
     navigate(`/results/${puzzle.id}?${params.toString()}`)
+  }
+
+  const startNextTier = (tier: TierName) => {
+    setShowCompletionDialog(false)
+    setCurrentWord('')
+    setSearchParams({ tier })
+    setActiveTier(tier)
+  }
+
+  const goToNextPuzzle = () => {
+    const puzzleIndex = bonusRushPuzzles.findIndex((entry) => entry.id === puzzle.id)
+    const nextPuzzle = puzzleIndex >= 0 ? bonusRushPuzzles[puzzleIndex + 1] : undefined
+    if (!nextPuzzle) {
+      navigate('/')
+      return
+    }
+
+    navigate(`/puzzle/${nextPuzzle.id}?tier=Bronze`)
   }
 
   const openLeaveDialog = () => {
@@ -631,6 +757,40 @@ export function Puzzle() {
             <div className="leave-puzzle-actions">
               <PrimaryButton onClick={loseProgressAndLeave}>lose progress</PrimaryButton>
               <SecondaryButton onClick={keepPlaying}>keep playing</SecondaryButton>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {showCompletionDialog ? (
+        <div className="modal-backdrop" role="presentation">
+          <section className="tier-complete-modal card" role="dialog" aria-modal="true" aria-labelledby="tier-complete-title">
+            <h2 id="tier-complete-title">Congratualtions! Here are your rewards.</h2>
+            {completionRewards.length > 0 ? (
+              <ul className="tier-complete-rewards">
+                {completionRewards.map((reward) => (
+                  <li key={`${completionRunClaimId}-${reward}`}>{reward}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>No rewards earned this run.</p>
+            )}
+
+            <p className="tier-complete-copy">
+              {activeTier === 'Bronze'
+                ? 'Try Again for Silver or go to the next level?'
+                : activeTier === 'Silver'
+                  ? 'Go to the next level or go for Gold tier?'
+                  : 'You have mastered this level. Go to the next level?'}
+            </p>
+
+            <div className="tier-complete-actions">
+              {nextTier ? (
+                <PrimaryButton onClick={() => startNextTier(nextTier)}>
+                  {activeTier === 'Bronze' ? 'Try Silver' : 'Go for Gold'}
+                </PrimaryButton>
+              ) : null}
+              <SecondaryButton onClick={goToNextPuzzle}>Next Level</SecondaryButton>
             </div>
           </section>
         </div>
