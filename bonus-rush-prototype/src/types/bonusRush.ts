@@ -14,6 +14,7 @@ export interface TierConfig {
   thresholds: TierThresholds
   crosswordGrid: string[][]
   allowedWords: string[]
+  crosswordWords?: string[]
 }
 
 export interface PuzzleConfig {

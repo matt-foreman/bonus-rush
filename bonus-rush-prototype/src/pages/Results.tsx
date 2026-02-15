@@ -120,10 +120,11 @@ export function Results() {
     if (!puzzle || !tierConfig) {
       return 0
     }
+    const totalAvailable = tierConfig.allowedWords?.length ?? tierConfig.totalWords
 
     const fromQuery = Number(searchParams.get('found'))
     if (Number.isFinite(fromQuery)) {
-      return Math.max(0, Math.min(tierConfig.totalWords, Math.floor(fromQuery)))
+      return Math.max(0, Math.min(totalAvailable, Math.floor(fromQuery)))
     }
 
     return getProgress()[puzzle.id]?.[tier]?.bestFound ?? 0

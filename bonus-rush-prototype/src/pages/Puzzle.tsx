@@ -4,6 +4,7 @@ import {
   BonusCounter,
   CrosswordGrid,
   PrimaryButton,
+  ProgressBar,
   SecondaryButton,
   TierBadge,
   TimeExpiredModal,
@@ -13,13 +14,14 @@ import { bonusRushPuzzles } from '../data/bonusRush'
 import { getInventory, isTierUnlocked, recordRun, type Inventory, updateInventory } from '../state/storage'
 import type { TierConfig, TierName } from '../types/bonusRush'
 import { findMatchingSlot, placeWord } from '../utils/crossword'
-import { isAllowedWord, isValidWord, normalizeWord } from '../utils/wordGame'
+import { isValidWord, normalizeWord } from '../utils/wordGame'
 
 const START_TIME_SECONDS = 180
 const INVALID_WORD_ANIMATION_MS = 620
 const tiers: TierName[] = ['Bronze', 'Silver', 'Gold']
 const coinCostByTier: Record<TierName, number> = { Bronze: 50, Silver: 100, Gold: 150 }
 const TIMER_STORAGE_PREFIX = 'bonusRush.timerEndsAt'
+const DEBUG_AVAILABLE = import.meta.env.DEV
 
 function buildRunGrid(tier: TierConfig): string[][] {
   const fixedLetters = new Set(tier.addedBoardLetters.map((letter) => letter.toUpperCase()))
@@ -153,9 +155,23 @@ export function Puzzle() {
   const [invalidWordPulse, setInvalidWordPulse] = useState(0)
   const [alreadyFoundPulse, setAlreadyFoundPulse] = useState(0)
   const [temporaryMessage, setTemporaryMessage] = useState('')
+  const [showDebugMenu, setShowDebugMenu] = useState(false)
+  const [debugOutput, setDebugOutput] = useState('')
   const [feedback, setFeedback] = useState('')
 
   const tierConfig = puzzle?.tiers[activeTier]
+  const allowedWordsList = useMemo(
+    () => (tierConfig ? tierConfig.allowedWords.map((word) => normalizeWord(word)).filter(Boolean) : []),
+    [tierConfig],
+  )
+  const allowedWordsSet = useMemo(() => new Set(allowedWordsList), [allowedWordsList])
+  const crosswordWordsList = useMemo(() => {
+    if (!tierConfig?.crosswordWords || tierConfig.crosswordWords.length === 0) {
+      return allowedWordsList
+    }
+    return tierConfig.crosswordWords.map((word) => normalizeWord(word)).filter(Boolean)
+  }, [tierConfig, allowedWordsList])
+  const crosswordWordsSet = useMemo(() => new Set(crosswordWordsList), [crosswordWordsList])
 
   useEffect(() => {
     setActiveTier(resolvedTier)
@@ -181,6 +197,8 @@ export function Puzzle() {
     setInvalidWordPulse(0)
     setAlreadyFoundPulse(0)
     setTemporaryMessage('')
+    setShowDebugMenu(false)
+    setDebugOutput('')
     setFeedback('')
     setSecondsLeft(getInitialStoredTimerSeconds(puzzle.id, activeTier))
   }, [puzzle, tierConfig, activeTier])
@@ -209,14 +227,15 @@ export function Puzzle() {
       return
     }
 
-    const allBonusFound = bonusWords.length >= tierConfig.bonusWordsTotal
-    if (secondsLeft === 0 && !allBonusFound) {
+    const foundCount = new Set([...crosswordWords, ...bonusWords]).size
+    const levelComplete = foundCount >= (allowedWordsList.length > 0 ? allowedWordsList.length : tierConfig.totalWords)
+    if (secondsLeft === 0 && !levelComplete) {
       setShowTimeExpiredModal(true)
       return
     }
 
-    if (secondsLeft === 0 && allBonusFound) {
-      const found = crosswordWords.length + bonusWords.length
+    if (secondsLeft === 0 && levelComplete) {
+      const found = foundCount
       const params = new URLSearchParams({
         tier: activeTier,
         found: String(found),
@@ -224,7 +243,7 @@ export function Puzzle() {
       })
       navigate(`/results/${puzzle?.id ?? ''}?${params.toString()}`)
     }
-  }, [secondsLeft, bonusWords.length, crosswordWords.length, activeTier, tierConfig, navigate, puzzle?.id])
+  }, [secondsLeft, bonusWords, crosswordWords, activeTier, tierConfig, navigate, puzzle?.id, allowedWordsList.length])
 
   useEffect(() => {
     setCurrentWord('')
@@ -267,6 +286,19 @@ export function Puzzle() {
     return () => window.clearTimeout(timeout)
   }, [temporaryMessage])
 
+  useEffect(() => {
+    if (!DEBUG_AVAILABLE || !tierConfig) {
+      return
+    }
+
+    if (tierConfig.totalWords !== allowedWordsList.length) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[BonusRush] totalWords mismatch for ${puzzle?.id ?? 'unknown'} ${activeTier}: totalWords=${tierConfig.totalWords}, allowedWords=${allowedWordsList.length}. Using allowedWords length for completion.`,
+      )
+    }
+  }, [tierConfig, allowedWordsList.length, puzzle?.id, activeTier])
+
   if (!puzzle || !tierConfig) {
     return (
       <section className="card page">
@@ -276,8 +308,10 @@ export function Puzzle() {
     )
   }
 
-  const totalFound = crosswordWords.length + bonusWords.length
-  const allFoundWords = new Set([...crosswordWords, ...bonusWords])
+  const foundWordsAll = new Set([...crosswordWords, ...bonusWords])
+  const totalFound = foundWordsAll.size
+  const totalAvailable = allowedWordsList.length > 0 ? allowedWordsList.length : tierConfig.totalWords
+  const missingWords = allowedWordsList.filter((word) => !foundWordsAll.has(word))
 
   const switchTier = (tier: TierName) => {
     if (!isTierUnlocked(puzzle.id, tier)) {
@@ -308,11 +342,16 @@ export function Puzzle() {
       return
     }
 
-    if (allFoundWords.has(normalized)) {
+    if (foundWordsAll.has(normalized)) {
       setAlreadyFoundPulse((value) => value + 1)
       setTemporaryMessage('already found')
       setFeedback('')
       setCurrentWord('')
+      return
+    }
+
+    if (!allowedWordsSet.has(normalized)) {
+      rejectWord('Word is not in this tier list.', true)
       return
     }
 
@@ -321,17 +360,13 @@ export function Puzzle() {
       return
     }
 
-    if (!isAllowedWord(normalized, tierConfig.allowedWords)) {
-      rejectWord('Word is not in this tier list.', true)
-      return
-    }
+    const shouldTryCrossword = crosswordWordsSet.has(normalized)
+    const matchingSlot = shouldTryCrossword ? findMatchingSlot(runGrid, normalized) : null
 
-    const matchingSlot = findMatchingSlot(runGrid, normalized)
-
-    if (matchingSlot) {
+    if (shouldTryCrossword && matchingSlot) {
       const nextGrid = placeWord(runGrid, normalized, matchingSlot)
       const nextCrosswordWords = [...crosswordWords, normalized]
-      const nextFound = nextCrosswordWords.length + bonusWords.length
+      const nextFound = new Set([...nextCrosswordWords, ...bonusWords]).size
       setRunGrid(nextGrid)
       setCrosswordWords(nextCrosswordWords)
       setLatestBonusWord(null)
@@ -339,7 +374,7 @@ export function Puzzle() {
       setFeedback(`Filled crossword: ${normalized}`)
     } else {
       const nextBonusWords = [...bonusWords, normalized]
-      const nextFound = crosswordWords.length + nextBonusWords.length
+      const nextFound = new Set([...crosswordWords, ...nextBonusWords]).size
       setBonusWords(nextBonusWords)
       setLatestBonusWord(normalized)
       recordRun(puzzle.id, activeTier, nextFound, starsForFound(nextFound, tierConfig))
@@ -419,6 +454,40 @@ export function Puzzle() {
     setShowTimeExpiredModal(false)
   }
 
+  const fillCrosswordDebug = () => {
+    let nextGrid = runGrid
+    const nextCrosswordWords = [...crosswordWords]
+
+    for (const word of crosswordWordsList) {
+      if (foundWordsAll.has(word)) {
+        continue
+      }
+      const slot = findMatchingSlot(nextGrid, word)
+      if (!slot) {
+        continue
+      }
+      nextGrid = placeWord(nextGrid, word, slot)
+      nextCrosswordWords.push(word)
+    }
+
+    const dedupedCrossword = [...new Set(nextCrosswordWords)]
+    const nextFound = new Set([...dedupedCrossword, ...bonusWords]).size
+
+    setRunGrid(nextGrid)
+    setCrosswordWords(dedupedCrossword)
+    setLatestBonusWord(null)
+    recordRun(puzzle.id, activeTier, nextFound, starsForFound(nextFound, tierConfig))
+  }
+
+  const fillBonusDebug = () => {
+    const nextBonus = [...new Set([...bonusWords, ...missingWords])]
+    const nextFound = new Set([...crosswordWords, ...nextBonus]).size
+
+    setBonusWords(nextBonus)
+    setLatestBonusWord(null)
+    recordRun(puzzle.id, activeTier, nextFound, starsForFound(nextFound, tierConfig))
+  }
+
   return (
     <section className={`puzzle-page card page tier-accent-${activeTier.toLowerCase()}`}>
       <header className="puzzle-header">
@@ -433,6 +502,8 @@ export function Puzzle() {
           <span className="inventory-chip">Hints: {inventory.hints}</span>
         </div>
       </header>
+
+      <ProgressBar current={totalFound} total={totalAvailable} label="Words Found" />
 
       <div className="tier-tabs" role="tablist" aria-label="Tier selection">
         {tiers.map((tier) => {
@@ -500,6 +571,12 @@ export function Puzzle() {
         </div>
       </div>
 
+      {DEBUG_AVAILABLE ? (
+        <button type="button" className="puzzle-debug-fab" onClick={() => setShowDebugMenu(true)}>
+          D
+        </button>
+      ) : null}
+
       <TimeExpiredModal
         open={showTimeExpiredModal}
         tier={activeTier}
@@ -521,6 +598,37 @@ export function Puzzle() {
               <PrimaryButton onClick={loseProgressAndLeave}>lose progress</PrimaryButton>
               <SecondaryButton onClick={keepPlaying}>keep playing</SecondaryButton>
             </div>
+          </section>
+        </div>
+      ) : null}
+
+      {DEBUG_AVAILABLE && showDebugMenu ? (
+        <div className="modal-backdrop" role="presentation">
+          <section className="puzzle-debug-modal card" role="dialog" aria-modal="true" aria-labelledby="puzzle-debug-title">
+            <h2 id="puzzle-debug-title">Debug Commands</h2>
+            <div className="puzzle-debug-actions">
+              <SecondaryButton onClick={fillCrosswordDebug}>Autofill Puzzle Words</SecondaryButton>
+              <SecondaryButton onClick={fillBonusDebug}>Autofill Bonus Words</SecondaryButton>
+              <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(allowedWordsList, null, 2))}>allowedWords</SecondaryButton>
+              <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(crosswordWordsList, null, 2))}>crosswordWords</SecondaryButton>
+              <SecondaryButton
+                onClick={() =>
+                  setDebugOutput(
+                    [
+                      `foundCrossword: ${crosswordWords.length}`,
+                      `foundBonus: ${bonusWords.length}`,
+                      `foundAllWords: ${foundWordsAll.size}`,
+                      `totalAvailable: ${totalAvailable}`,
+                    ].join('\n'),
+                  )
+                }
+              >
+                found counts
+              </SecondaryButton>
+              <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(missingWords, null, 2))}>missingWords</SecondaryButton>
+            </div>
+            <pre className="puzzle-debug-output">{debugOutput || 'Select a command to inspect values.'}</pre>
+            <PrimaryButton onClick={() => setShowDebugMenu(false)}>Close</PrimaryButton>
           </section>
         </div>
       ) : null}

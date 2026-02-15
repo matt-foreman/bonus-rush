@@ -619,6 +619,7 @@ p {
   border-top: 4px solid #cdbf9a;
   min-height: 100%;
   align-content: start;
+  position: relative;
 }
 
 .puzzle-header {
@@ -656,6 +657,44 @@ p {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.progress-bar {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.34rem 0.45rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--br-primary) 20%, #ffffff);
+  background: color-mix(in srgb, var(--br-node-fill) 82%, #ffffff);
+}
+
+.progress-bar-label {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--br-primary) 86%, #203428);
+}
+
+.progress-bar-track {
+  position: relative;
+  height: 0.66rem;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--br-primary) 28%, #ffffff);
+  background: color-mix(in srgb, var(--br-primary) 9%, #ffffff);
+}
+
+.progress-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background:
+    linear-gradient(180deg, #ffffff66 0%, #ffffff00 50%),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--br-secondary) 60%, #7fd4b4) 0%,
+      color-mix(in srgb, var(--br-primary) 84%, #2e7e60) 100%
+    );
+  transition: width 260ms ease;
 }
 
 .tier-tab {
@@ -1060,6 +1099,53 @@ p {
 .leave-puzzle-actions {
   display: grid;
   gap: 0.5rem;
+}
+
+.puzzle-debug-fab {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.8rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  border: 1px solid #d2bee9;
+  background: linear-gradient(180deg, #f5e9ff 0%, #e5d1fb 100%);
+  color: #5a2f88;
+  font-size: 1rem;
+  font-weight: 900;
+  z-index: 8;
+  cursor: pointer;
+}
+
+.puzzle-debug-modal {
+  width: min(560px, 100%);
+  padding: 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.puzzle-debug-modal h2 {
+  margin: 0;
+}
+
+.puzzle-debug-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.puzzle-debug-output {
+  margin: 0;
+  min-height: 84px;
+  max-height: 220px;
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid #c7dacc;
+  background: #f2faf5;
+  color: #234836;
+  padding: 0.55rem;
+  font-size: 0.78rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .results-page {

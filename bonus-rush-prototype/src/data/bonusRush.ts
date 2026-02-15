@@ -9,12 +9,12 @@ export const bonusRushPuzzles: PuzzleConfig[] = [
       Bronze: {
         name: 'Bronze',
         addedBoardLetters: [],
-        totalWords: 9,
-        bonusWordsTotal: 6,
+        totalWords: 7,
+        bonusWordsTotal: 4,
         thresholds: {
-          oneStar: 5,
-          twoStar: 7,
-          threeStar: 9,
+          oneStar: 3,
+          twoStar: 5,
+          threeStar: 7,
         },
         crosswordGrid: [
           ['#', 'B', 'A', 'R', 'N', '#'],
@@ -22,7 +22,8 @@ export const bonusRushPuzzles: PuzzleConfig[] = [
           ['#', 'R', 'A', 'N', '#', '#'],
           ['#', '#', '#', '#', '#', '#'],
         ],
-        allowedWords: ['AN', 'AR', 'BA', 'BAN', 'BAR', 'BRA', 'NAB', 'RAN', 'BARN'],
+        allowedWords: ['BARN', 'BAR', 'RAN', 'BAN', 'BRA', 'NAB', 'ARB'],
+        crosswordWords: ['BARN', 'BAR', 'RAN'],
       },
       Silver: {
         name: 'Silver',
