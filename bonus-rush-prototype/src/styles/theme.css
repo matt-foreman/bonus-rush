@@ -638,6 +638,20 @@ p {
   font-weight: 800;
 }
 
+.current-word-pill.is-invalid {
+  background: linear-gradient(180deg, #f7c1cf 0%, #ee97ae 100%);
+  border-color: #d16a89;
+  color: #6f1d3c;
+  animation: invalid-word-no 620ms ease-in-out forwards;
+}
+
+.current-word-pill.is-found {
+  background: linear-gradient(180deg, #d7f5db 0%, #bcefc5 100%);
+  border-color: #87cb95;
+  color: #1f5b2f;
+  animation: found-word-flash 560ms ease-out;
+}
+
 .tier-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -689,6 +703,11 @@ p {
   margin: 0;
   font-size: 0.92rem;
   font-weight: 600;
+}
+
+.puzzle-feedback.is-ephemeral {
+  color: #2f7a45;
+  animation: already-found-fade 900ms ease-out forwards;
 }
 
 .bonus-words-panel {
@@ -932,6 +951,63 @@ p {
   100% {
     transform: scale(1);
     opacity: 1;
+  }
+}
+
+@keyframes invalid-word-no {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  15% {
+    transform: translateX(-8px);
+  }
+  30% {
+    transform: translateX(8px);
+  }
+  45% {
+    transform: translateX(-6px);
+  }
+  60% {
+    transform: translateX(6px);
+  }
+  75% {
+    transform: translateX(0);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+}
+
+@keyframes found-word-flash {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 #8ed19900;
+  }
+  40% {
+    transform: scale(1.03);
+    box-shadow: 0 0 0 6px #8ed19933;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 #8ed19900;
+  }
+}
+
+@keyframes already-found-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-2px);
   }
 }
 

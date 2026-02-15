@@ -16,6 +16,7 @@ import { findMatchingSlot, placeWord } from '../utils/crossword'
 import { isAllowedWord, isValidWord, normalizeWord } from '../utils/wordGame'
 
 const START_TIME_SECONDS = 180
+const INVALID_WORD_ANIMATION_MS = 620
 const tiers: TierName[] = ['Bronze', 'Silver', 'Gold']
 const coinCostByTier: Record<TierName, number> = { Bronze: 50, Silver: 100, Gold: 150 }
 const TIMER_STORAGE_PREFIX = 'bonusRush.timerEndsAt'
@@ -149,6 +150,9 @@ export function Puzzle() {
   const [showTimeExpiredModal, setShowTimeExpiredModal] = useState(false)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
   const [pausedSeconds, setPausedSeconds] = useState<number | null>(null)
+  const [invalidWordPulse, setInvalidWordPulse] = useState(0)
+  const [alreadyFoundPulse, setAlreadyFoundPulse] = useState(0)
+  const [temporaryMessage, setTemporaryMessage] = useState('')
   const [feedback, setFeedback] = useState('')
 
   const tierConfig = puzzle?.tiers[activeTier]
@@ -174,6 +178,9 @@ export function Puzzle() {
     setRewardVideosUsed(0)
     setIapUsed(false)
     setShowTimeExpiredModal(false)
+    setInvalidWordPulse(0)
+    setAlreadyFoundPulse(0)
+    setTemporaryMessage('')
     setFeedback('')
     setSecondsLeft(getInitialStoredTimerSeconds(puzzle.id, activeTier))
   }, [puzzle, tierConfig, activeTier])
@@ -223,6 +230,43 @@ export function Puzzle() {
     setCurrentWord('')
   }, [crosswordWords.length, bonusWords.length])
 
+  useEffect(() => {
+    if (invalidWordPulse === 0) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setCurrentWord('')
+      setInvalidWordPulse(0)
+    }, INVALID_WORD_ANIMATION_MS)
+
+    return () => window.clearTimeout(timeout)
+  }, [invalidWordPulse])
+
+  useEffect(() => {
+    if (alreadyFoundPulse === 0) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setAlreadyFoundPulse(0)
+    }, 560)
+
+    return () => window.clearTimeout(timeout)
+  }, [alreadyFoundPulse])
+
+  useEffect(() => {
+    if (!temporaryMessage) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      setTemporaryMessage('')
+    }, 900)
+
+    return () => window.clearTimeout(timeout)
+  }, [temporaryMessage])
+
   if (!puzzle || !tierConfig) {
     return (
       <section className="card page">
@@ -245,29 +289,40 @@ export function Puzzle() {
   }
 
   const submitWord = () => {
+    const rejectWord = (message: string, animateWord: boolean) => {
+      setFeedback(message)
+      setTemporaryMessage('')
+      if (animateWord && normalizeWord(currentWord)) {
+        setInvalidWordPulse((value) => value + 1)
+      }
+    }
+
     if (secondsLeft <= 0) {
-      setFeedback('Time is up.')
+      rejectWord('Time is up.', false)
       return
     }
 
     const normalized = normalizeWord(currentWord)
     if (!normalized) {
-      setFeedback('Build a word first.')
+      rejectWord('Build a word first.', false)
       return
     }
 
     if (allFoundWords.has(normalized)) {
-      setFeedback('Word already used.')
+      setAlreadyFoundPulse((value) => value + 1)
+      setTemporaryMessage('already found')
+      setFeedback('')
+      setCurrentWord('')
       return
     }
 
     if (!isValidWord(normalized, puzzle.wheelLetters)) {
-      setFeedback('Word uses unavailable letters.')
+      rejectWord('Word uses unavailable letters.', true)
       return
     }
 
     if (!isAllowedWord(normalized, tierConfig.allowedWords)) {
-      setFeedback('Word is not in this tier list.')
+      rejectWord('Word is not in this tier list.', true)
       return
     }
 
@@ -404,7 +459,11 @@ export function Puzzle() {
         <div className="word-wheel-panel">
           <WordWheel wheelLetters={puzzle.wheelLetters} currentWord={currentWord} onCurrentWordChange={setCurrentWord} />
 
-          <div className="current-word-pill" aria-live="polite">
+          <div
+            key={`current-word-pill-${invalidWordPulse}-${alreadyFoundPulse}`}
+            className={`current-word-pill ${invalidWordPulse > 0 ? 'is-invalid' : ''} ${alreadyFoundPulse > 0 ? 'is-found' : ''}`.trim()}
+            aria-live="polite"
+          >
             {currentWord ? normalizeWord(currentWord) : 'Current Word'}
           </div>
 
@@ -420,8 +479,8 @@ export function Puzzle() {
             </SecondaryButton>
           </div>
 
-          <p className="puzzle-feedback" aria-live="polite">
-            {feedback || `Found ${totalFound} words this run`}
+          <p className={`puzzle-feedback ${temporaryMessage ? 'is-ephemeral' : ''}`.trim()} aria-live="polite">
+            {temporaryMessage || feedback || `Found ${totalFound} words this run`}
           </p>
 
           <section className="bonus-words-panel" aria-label="Found bonus words">
