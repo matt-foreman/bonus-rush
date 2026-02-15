@@ -9,6 +9,7 @@ import { Tooltip } from './Tooltip'
 const TOOLTIP_AUTO_CLOSE_MS = 2500
 const RESIZE_DEBOUNCE_MS = 100
 const DEBUG_AVAILABLE = import.meta.env.DEV
+const SHOW_MAP_DEBUG_UI = false
 const DEBUG_STORAGE_KEY = 'bonusRush.debugAnchors'
 const SPARKLE_BURST_MS = 3000
 const SPARKLE_INTERVAL_MS = 20000
@@ -612,7 +613,7 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
             <Tooltip text={activeTooltip.text} x={activeTooltip.x} y={activeTooltip.y} placement={activeTooltip.placement} />
           ) : null}
 
-          {DEBUG_AVAILABLE ? (
+          {DEBUG_AVAILABLE && SHOW_MAP_DEBUG_UI ? (
             <div className="debugControls">
               <button
                 type="button"

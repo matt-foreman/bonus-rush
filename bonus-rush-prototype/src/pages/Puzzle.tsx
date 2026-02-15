@@ -279,6 +279,7 @@ export function Puzzle() {
   const [alreadyFoundPulse, setAlreadyFoundPulse] = useState(0)
   const [temporaryMessage, setTemporaryMessage] = useState('')
   const [showDebugMenu, setShowDebugMenu] = useState(false)
+  const [showResetProgressConfirm, setShowResetProgressConfirm] = useState(false)
   const [debugOutput, setDebugOutput] = useState('')
   const [feedback, setFeedback] = useState('')
   const [showCompletionDialog, setShowCompletionDialog] = useState(false)
@@ -325,6 +326,7 @@ export function Puzzle() {
     setAlreadyFoundPulse(0)
     setTemporaryMessage('')
     setShowDebugMenu(false)
+    setShowResetProgressConfirm(false)
     setDebugOutput('')
     setFeedback('')
     setShowCompletionDialog(false)
@@ -840,7 +842,7 @@ export function Puzzle() {
             <div className="puzzle-debug-actions">
               <SecondaryButton onClick={fillCrosswordDebug}>Autofill Puzzle Words</SecondaryButton>
               <SecondaryButton onClick={fillBonusDebug}>Autofill Bonus Words</SecondaryButton>
-              <SecondaryButton onClick={resetAllProgressDebug}>Reset All Progress</SecondaryButton>
+              <SecondaryButton onClick={() => setShowResetProgressConfirm(true)}>Reset All Progress</SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(allowedWordsList, null, 2))}>allowedWords</SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(crosswordWordsList, null, 2))}>crosswordWords</SecondaryButton>
               <SecondaryButton
@@ -859,9 +861,28 @@ export function Puzzle() {
               </SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(missingWords, null, 2))}>missingWords</SecondaryButton>
             </div>
-            <p className="puzzle-debug-warning">⚠️ warning: this will delete all progress for all tiers on all levels</p>
             <pre className="puzzle-debug-output">{debugOutput || 'Select a command to inspect values.'}</pre>
             <PrimaryButton onClick={() => setShowDebugMenu(false)}>Close</PrimaryButton>
+          </section>
+        </div>
+      ) : null}
+
+      {showResetProgressConfirm ? (
+        <div className="modal-backdrop" role="presentation">
+          <section className="reset-progress-modal card" role="dialog" aria-modal="true" aria-labelledby="reset-progress-title">
+            <h2 id="reset-progress-title">Confirm Reset</h2>
+            <p>⚠️ warning: this will delete all progress for all tiers on all levels</p>
+            <div className="reset-progress-actions">
+              <PrimaryButton
+                onClick={() => {
+                  resetAllProgressDebug()
+                  setShowResetProgressConfirm(false)
+                }}
+              >
+                Reset All Progress
+              </PrimaryButton>
+              <SecondaryButton onClick={() => setShowResetProgressConfirm(false)}>Cancel</SecondaryButton>
+            </div>
           </section>
         </div>
       ) : null}

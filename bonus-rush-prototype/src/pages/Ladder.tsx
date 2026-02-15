@@ -22,6 +22,7 @@ function resolveNodeUnlocked(puzzleId: string): boolean {
 
 const tierOrder: TierName[] = ['Bronze', 'Silver', 'Gold']
 const MASTERY_STARS = 3
+const SHOW_DEMO_MODE_UI = false
 
 function resolveEntryTier(puzzleId: string): TierName {
   const puzzle = bonusRushPuzzles.find((item) => item.id === puzzleId)
@@ -177,14 +178,16 @@ export function Ladder() {
         </div>
       ) : null}
 
-      <DemoModeButton
-        enabled={demoMode}
-        onToggle={() => {
-          const next = !demoMode
-          setDemoModeEnabled(next)
-          setDemoMode(next)
-        }}
-      />
+      {SHOW_DEMO_MODE_UI ? (
+        <DemoModeButton
+          enabled={demoMode}
+          onToggle={() => {
+            const next = !demoMode
+            setDemoModeEnabled(next)
+            setDemoMode(next)
+          }}
+        />
+      ) : null}
     </section>
   )
 }
