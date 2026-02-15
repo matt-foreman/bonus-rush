@@ -14,7 +14,7 @@ import { bonusRushPuzzles } from '../data/bonusRush'
 import { getInventory, isTierUnlocked, recordRun, type Inventory, updateInventory } from '../state/storage'
 import type { TierConfig, TierName } from '../types/bonusRush'
 import { findMatchingSlot, placeWord } from '../utils/crossword'
-import { isValidWord, normalizeWord } from '../utils/wordGame'
+import { normalizeWord } from '../utils/wordGame'
 
 const START_TIME_SECONDS = 180
 const INVALID_WORD_ANIMATION_MS = 620
@@ -228,7 +228,7 @@ export function Puzzle() {
     }
 
     const foundCount = new Set([...crosswordWords, ...bonusWords]).size
-    const levelComplete = foundCount >= (allowedWordsList.length > 0 ? allowedWordsList.length : tierConfig.totalWords)
+    const levelComplete = foundCount === (allowedWordsList.length > 0 ? allowedWordsList.length : tierConfig.totalWords)
     if (secondsLeft === 0 && !levelComplete) {
       setShowTimeExpiredModal(true)
       return
@@ -342,6 +342,11 @@ export function Puzzle() {
       return
     }
 
+    if (normalized.length < 3) {
+      rejectWord('Words must be at least 3 letters.', true)
+      return
+    }
+
     if (foundWordsAll.has(normalized)) {
       setAlreadyFoundPulse((value) => value + 1)
       setTemporaryMessage('already found')
@@ -352,11 +357,6 @@ export function Puzzle() {
 
     if (!allowedWordsSet.has(normalized)) {
       rejectWord('Word is not in this tier list.', true)
-      return
-    }
-
-    if (!isValidWord(normalized, puzzle.wheelLetters)) {
-      rejectWord('Word uses unavailable letters.', true)
       return
     }
 
@@ -528,7 +528,7 @@ export function Puzzle() {
         <CrosswordGrid grid={runGrid} boardOnlyLetters={tierConfig.addedBoardLetters} />
 
         <div className="word-wheel-panel">
-          <WordWheel wheelLetters={puzzle.wheelLetters} currentWord={currentWord} onCurrentWordChange={setCurrentWord} />
+          <WordWheel wheelLetters={tierConfig.wheelLetters} currentWord={currentWord} onCurrentWordChange={setCurrentWord} />
 
           <div
             key={`current-word-pill-${invalidWordPulse}-${alreadyFoundPulse}`}

@@ -8,13 +8,14 @@ export interface TierThresholds {
 
 export interface TierConfig {
   name: TierName
+  wheelLetters: string[]
   addedBoardLetters: string[]
   totalWords: number
   bonusWordsTotal: number
   thresholds: TierThresholds
   crosswordGrid: string[][]
   allowedWords: string[]
-  crosswordWords?: string[]
+  crosswordWords: string[]
 }
 
 export interface PuzzleConfig {
