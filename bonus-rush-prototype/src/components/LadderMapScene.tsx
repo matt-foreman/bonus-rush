@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import bonusRushMapWithLogo from '../assets/bonus_rush_map_with_logo_1080x1920.png'
 import { LockedReason } from '../state/storage'
 import { CoinPill } from './CoinPill'
-import { MedalBadge } from './MedalBadge'
+import { StarsRow } from './StarsRow'
 import { Tooltip } from './Tooltip'
 
 const TOOLTIP_AUTO_CLOSE_MS = 2500
@@ -532,8 +532,7 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
                     onSelectLevel(level.levelId)
                   }}
                 >
-                  <span className="mapNodeLevel">Lv {level.levelNumber}</span>
-                  <MedalBadge tier={level.displayTier} stars={level.displayStars} />
+                  {!isLocked ? <StarsRow stars={level.displayStars} className="mapNodeStars" /> : null}
                   {isLocked ? (
                     <span className="mapNodeLockOverlay" aria-hidden="true">
                       <span className="mapNodeLockIcon">🔒</span>

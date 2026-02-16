@@ -176,13 +176,16 @@
 
 .mapNode {
   position: absolute;
-  width: 4.2rem;
-  height: 4.4rem;
+  width: 3.35rem;
+  height: 3.35rem;
   transform: translate(-50%, -50%);
-  border: 2px solid var(--br-node-border);
+  border: 2px solid #c9a47a;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--br-node-fill) 96%, #ffffff);
-  box-shadow: var(--br-node-shadow);
+  background:
+    radial-gradient(circle at 30% 26%, #9a6f46 0%, #7d5635 45%, #5f3f26 100%);
+  box-shadow:
+    inset 0 1px 0 #f1d5b07a,
+    0 8px 14px #3020134a;
   display: grid;
   place-items: center;
   pointer-events: auto;
@@ -193,6 +196,34 @@
 .mapNode:hover {
   transform: translate(-50%, -50%) scale(1.04);
   filter: brightness(1.02);
+}
+
+.mapNodeStars {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.78rem;
+  gap: 0.08rem;
+  text-shadow:
+    0 1px 0 #fff8d8,
+    0 1px 6px #7c64290f;
+}
+
+.mapNodeStars .stars-row-star {
+  font-size: 1.26rem;
+  color: #dcc7a6;
+  line-height: 1;
+  text-shadow:
+    0 1px 0 #ffffff73,
+    0 3px 3px #3c240fcc;
+}
+
+.mapNodeStars .stars-row-star.filled {
+  color: #f5be46;
 }
 
 .mapNodeLevel {
@@ -596,8 +627,12 @@
   }
 
   .mapNode {
-    width: 3.9rem;
-    height: 4.1rem;
+    width: 3.15rem;
+    height: 3.15rem;
+  }
+
+  .mapNodeStars .stars-row-star {
+    font-size: 1.18rem;
   }
 
   .medal-badge {
