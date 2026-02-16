@@ -2,6 +2,7 @@ import { bonusRushLadderConfig, bonusRushLevels } from '../data/bonusRush'
 
 const PROGRESS_STORAGE_KEY = 'bonus-rush.progress.v2'
 const INVENTORY_STORAGE_KEY = 'bonus-rush.inventory.v1'
+const TIMER_STORAGE_PREFIX = 'bonusRush.timerEndsAt'
 export const DEBUG_ADVANCE_DAYS_KEY = 'bonus-rush.debugAdvanceDays'
 export const DEMO_MODE_KEY = 'bonus-rush.demoMode'
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -149,6 +150,16 @@ export function setProgress(progress: ProgressState): void {
   window.localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(sanitizeProgressState(progress)))
 }
 
+export function resetAllProgress(): void {
+  setProgress({})
+  if (!isBrowserStorageAvailable()) {
+    return
+  }
+  for (const level of bonusRushLevels) {
+    window.localStorage.removeItem(`${TIMER_STORAGE_PREFIX}.${level.id}`)
+  }
+}
+
 export function recordRun(levelId: number, found: number, stars: number): ProgressState {
   const progress = getProgress()
   const current = progress[levelId] ?? { bestFound: 0, bestStars: 0 }
@@ -259,4 +270,3 @@ export function updateInventory(delta: InventoryDelta): Inventory {
   }
   return next
 }
-

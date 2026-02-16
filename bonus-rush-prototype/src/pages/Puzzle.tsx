@@ -10,7 +10,7 @@ import {
   WordWheel,
 } from '../components'
 import { bonusRushLevels } from '../data/bonusRush'
-import { getInventory, getProgress, recordRun, setProgress, type Inventory, updateInventory } from '../state/storage'
+import { getInventory, getProgress, recordRun, resetAllProgress, type Inventory, updateInventory } from '../state/storage'
 import { canPlaceWord, getSlots, placeWord, type CrosswordSlot } from '../utils/crossword'
 import { normalizeWord } from '../utils/wordGame'
 
@@ -352,6 +352,51 @@ export function Puzzle() {
     setCurrentWord('')
   }
 
+  const completeCrosswordDebug = () => {
+    const nextCrosswordWords = new Set(crosswordWords)
+    let nextGrid = runGrid
+
+    for (const word of crosswordWordsList) {
+      const slot = findTemplateSlotForWord(level.crosswordGrid, nextGrid, word)
+      if (slot) {
+        nextGrid = placeWord(nextGrid, word, slot)
+      }
+      nextCrosswordWords.add(word)
+    }
+
+    const filteredBonus = bonusWords.filter((word) => !nextCrosswordWords.has(word))
+    const finalizedCrossword = Array.from(nextCrosswordWords)
+    const nextFound = new Set([...finalizedCrossword, ...filteredBonus]).size
+
+    setRunGrid(nextGrid)
+    setCrosswordWords(finalizedCrossword)
+    setBonusWords(filteredBonus)
+    setLatestBonusWord(null)
+    setFeedback('Crossword words completed.')
+    setCurrentWord('')
+    recordRun(level.id, nextFound, starsForFound(nextFound, totalAvailable))
+  }
+
+  const completeBonusDebug = () => {
+    const nextBonusWordsSet = new Set(bonusWords)
+    const crosswordSet = new Set(crosswordWordsList)
+
+    for (const word of allowedWordsList) {
+      if (!crosswordSet.has(word) && !crosswordWords.includes(word)) {
+        nextBonusWordsSet.add(word)
+      }
+    }
+
+    const finalizedBonus = Array.from(nextBonusWordsSet)
+    const nextFound = new Set([...crosswordWords, ...finalizedBonus]).size
+
+    setBonusWords(finalizedBonus)
+    setLatestBonusWord(finalizedBonus[finalizedBonus.length - 1] ?? null)
+    setFeedback('Bonus words completed.')
+    setCurrentWord('')
+    recordRun(level.id, nextFound, starsForFound(nextFound, totalAvailable))
+  }
+
   const addExtraTimeFromRewardVideo = () => {
     if (rewardVideosUsed >= 3) {
       return
@@ -387,10 +432,7 @@ export function Puzzle() {
   }
 
   const resetAllProgressDebug = () => {
-    setProgress({})
-    for (const levelEntry of bonusRushLevels) {
-      window.localStorage.removeItem(timerStorageKey(levelEntry.id))
-    }
+    resetAllProgress()
     setRunGrid(buildRunGrid(level.crosswordGrid))
     setCurrentWord('')
     setCrosswordWords([])
@@ -538,6 +580,8 @@ export function Puzzle() {
           <section className="puzzle-debug-modal card" role="dialog" aria-modal="true" aria-labelledby="puzzle-debug-title">
             <h2 id="puzzle-debug-title">Debug Commands</h2>
             <div className="puzzle-debug-actions">
+              <SecondaryButton onClick={completeCrosswordDebug}>Complete Crossword</SecondaryButton>
+              <SecondaryButton onClick={completeBonusDebug}>Complete Bonus</SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(allowedWordsList, null, 2))}>allowedWords</SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(crosswordWordsList, null, 2))}>crosswordWords</SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(missingWords, null, 2))}>missingWords</SecondaryButton>

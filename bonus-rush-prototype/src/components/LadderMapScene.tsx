@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import bonusRushMapWithLogo from '../assets/bonus_rush_map_with_logo_1080x1920.png'
-import { LockedReason } from '../state/storage'
+import { LockedReason, resetAllProgress } from '../state/storage'
 import { PrimaryButton, SecondaryButton } from './Buttons'
 import { CoinPill } from './CoinPill'
 import { StarsRow } from './StarsRow'
@@ -218,6 +218,7 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
   const [draftAnchors, setDraftAnchors] = useState<DraftAnchors>(() => loadDraftAnchors())
   const [copyStatus, setCopyStatus] = useState('')
   const [showDebugMenu, setShowDebugMenu] = useState(false)
+  const [showResetProgressConfirm, setShowResetProgressConfirm] = useState(false)
   const [sparkleActive, setSparkleActive] = useState(false)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null)
@@ -688,7 +689,19 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
             </div>
           ) : null}
 
-          <button type="button" className="puzzle-debug-fab map-debug-fab" onClick={() => setShowDebugMenu(true)}>
+          <button
+            type="button"
+            className="puzzle-debug-fab map-debug-fab"
+            onClick={() => {
+              setShowDebugMenu((previous) => {
+                const next = !previous
+                if (!next) {
+                  setShowResetProgressConfirm(false)
+                }
+                return next
+              })
+            }}
+          >
             D
           </button>
 
@@ -735,9 +748,32 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
                   >
                     Copy Anchors
                   </SecondaryButton>
+                  <SecondaryButton onClick={() => setShowResetProgressConfirm(true)}>Reset Progress</SecondaryButton>
                 </div>
                 <pre className="puzzle-debug-output">{copyStatus || 'Use commands to inspect or place map anchors.'}</pre>
                 <PrimaryButton onClick={() => setShowDebugMenu(false)}>Close</PrimaryButton>
+              </section>
+            </div>
+          ) : null}
+
+          {showResetProgressConfirm ? (
+            <div className="modal-backdrop" role="presentation">
+              <section className="reset-progress-modal card" role="dialog" aria-modal="true" aria-labelledby="map-reset-progress-title">
+                <h2 id="map-reset-progress-title">Confirm Reset</h2>
+                <p>This will clear all saved level progress.</p>
+                <div className="reset-progress-actions">
+                  <PrimaryButton
+                    onClick={() => {
+                      resetAllProgress()
+                      setShowResetProgressConfirm(false)
+                      setShowDebugMenu(false)
+                      setCopyStatus('Progress reset')
+                    }}
+                  >
+                    Reset All Progress
+                  </PrimaryButton>
+                  <SecondaryButton onClick={() => setShowResetProgressConfirm(false)}>Cancel</SecondaryButton>
+                </div>
               </section>
             </div>
           ) : null}
