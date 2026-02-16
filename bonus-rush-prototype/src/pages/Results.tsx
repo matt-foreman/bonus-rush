@@ -56,7 +56,7 @@ export function Results() {
   return (
     <section className="results-page card page">
       <header className="results-header">
-        <h2>{level.title} Results</h2>
+        <h2>{`Bonus Rush Level ${level.id} Results`}</h2>
       </header>
       <div className="results-stars" aria-label={`${runStars} stars`}>
         <StarsRow stars={runStars} />
