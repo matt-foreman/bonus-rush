@@ -386,9 +386,8 @@ export function Puzzle() {
           <span className="inventory-chip">Coins: {inventory.coins}</span>
           <span className="inventory-chip">Hints: {inventory.hints}</span>
         </div>
+        <ProgressBar current={totalFound} total={totalAvailable} label="Words Found" className="puzzle-header-progress" />
       </header>
-
-      <ProgressBar current={totalFound} total={totalAvailable} label="Words Found" />
 
       <div className="puzzle-main">
         <CrosswordGrid grid={runGrid} />

@@ -631,6 +631,10 @@ p {
   gap: 0.55rem;
 }
 
+.puzzle-header-progress {
+  flex: 1 0 100%;
+}
+
 .timer-pill,
 .current-word-pill {
   border-radius: 999px;
