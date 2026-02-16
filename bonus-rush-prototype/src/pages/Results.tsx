@@ -8,10 +8,10 @@ function thresholdCount(total: number, pct: number): number {
   return Math.max(0, Math.min(total, Math.ceil(total * pct)))
 }
 
-function starsForFound(found: number, total: number, thresholdsPct: { oneStar: number; twoStar: number; threeStar: number }): number {
-  const one = thresholdCount(total, thresholdsPct.oneStar)
-  const two = thresholdCount(total, thresholdsPct.twoStar)
-  const three = thresholdCount(total, thresholdsPct.threeStar)
+function starsForFound(found: number, total: number): number {
+  const one = thresholdCount(total, 0.4)
+  const two = thresholdCount(total, 0.7)
+  const three = total
   if (found >= three) {
     return 3
   }
@@ -45,7 +45,7 @@ export function Results() {
   const runFound = Number.isFinite(foundFromQuery)
     ? Math.max(0, Math.min(level.totalWords, Math.floor(foundFromQuery)))
     : bestProgress.bestFound
-  const runStars = starsForFound(runFound, level.totalWords, level.starThresholdsPct)
+  const runStars = starsForFound(runFound, level.totalWords)
   useEffect(() => {
     recordRun(level.id, runFound, runStars)
   }, [level.id, runFound, runStars])

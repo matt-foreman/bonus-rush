@@ -19,6 +19,8 @@ const INVALID_WORD_ANIMATION_MS = 620
 const TIMER_STORAGE_PREFIX = 'bonusRush.timerEndsAt'
 const COIN_COST = 75
 const DEBUG_AVAILABLE = import.meta.env.DEV
+const ONE_STAR_PCT = 0.4
+const TWO_STAR_PCT = 0.7
 
 function buildRunGrid(grid: string[][]): string[][] {
   return grid.map((row) => row.map((cell) => (cell === '#' ? '#' : '')))
@@ -34,10 +36,10 @@ function thresholdCount(total: number, pct: number): number {
   return Math.max(0, Math.min(total, Math.ceil(total * pct)))
 }
 
-function starsForFound(found: number, total: number, thresholdsPct: { oneStar: number; twoStar: number; threeStar: number }): number {
-  const one = thresholdCount(total, thresholdsPct.oneStar)
-  const two = thresholdCount(total, thresholdsPct.twoStar)
-  const three = thresholdCount(total, thresholdsPct.threeStar)
+function starsForFound(found: number, total: number): number {
+  const one = thresholdCount(total, ONE_STAR_PCT)
+  const two = thresholdCount(total, TWO_STAR_PCT)
+  const three = total
   if (found >= three) {
     return 3
   }
@@ -215,8 +217,8 @@ export function Puzzle() {
 
   const foundAllWords = new Set([...crosswordWords, ...bonusWords])
   const totalFound = foundAllWords.size
-  const totalAvailable = allowedWordsList.length
-  const stars = level ? starsForFound(totalFound, totalAvailable, level.starThresholdsPct) : 0
+  const totalAvailable = level?.totalWords ?? 0
+  const stars = level ? starsForFound(totalFound, totalAvailable) : 0
   const isComplete = totalAvailable > 0 && totalFound === totalAvailable
   const missingWords = allowedWordsList.filter((word) => !foundAllWords.has(word))
 
@@ -318,14 +320,14 @@ export function Puzzle() {
       setRunGrid(nextGrid)
       setCrosswordWords(nextCrosswordWords)
       setLatestBonusWord(null)
-      recordRun(level.id, nextFound, starsForFound(nextFound, totalAvailable, level.starThresholdsPct))
+      recordRun(level.id, nextFound, starsForFound(nextFound, totalAvailable))
       setFeedback(`Filled crossword: ${normalized}`)
     } else {
       const nextBonusWords = [...bonusWords, normalized]
       const nextFound = new Set([...crosswordWords, ...nextBonusWords]).size
       setBonusWords(nextBonusWords)
       setLatestBonusWord(normalized)
-      recordRun(level.id, nextFound, starsForFound(nextFound, totalAvailable, level.starThresholdsPct))
+      recordRun(level.id, nextFound, starsForFound(nextFound, totalAvailable))
       setFeedback(`Bonus word found: ${normalized}`)
     }
     setCurrentWord('')
