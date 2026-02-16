@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import bonusRushMapWithLogo from '../assets/bonus_rush_map_with_logo_1080x1920.png'
 import { LockedReason } from '../state/storage'
+import { PrimaryButton, SecondaryButton } from './Buttons'
 import { CoinPill } from './CoinPill'
 import { StarsRow } from './StarsRow'
 import { Tooltip } from './Tooltip'
@@ -216,6 +217,7 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
   const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(null)
   const [draftAnchors, setDraftAnchors] = useState<DraftAnchors>(() => loadDraftAnchors())
   const [copyStatus, setCopyStatus] = useState('')
+  const [showDebugMenu, setShowDebugMenu] = useState(false)
   const [sparkleActive, setSparkleActive] = useState(false)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null)
@@ -683,6 +685,60 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
                   ) : null}
                 </>
               ) : null}
+            </div>
+          ) : null}
+
+          <button type="button" className="puzzle-debug-fab map-debug-fab" onClick={() => setShowDebugMenu(true)}>
+            D
+          </button>
+
+          {showDebugMenu ? (
+            <div className="modal-backdrop" role="presentation">
+              <section className="puzzle-debug-modal card" role="dialog" aria-modal="true" aria-labelledby="map-debug-title">
+                <h2 id="map-debug-title">Map Debug Commands</h2>
+                <div className="puzzle-debug-actions">
+                  <SecondaryButton
+                    onClick={() => {
+                      setDebugEnabled((previous) => !previous)
+                      setPlacementMode(false)
+                      setSelectedPoint(null)
+                    }}
+                  >
+                    {debugEnabled ? 'Hide Debug Overlay' : 'Show Debug Overlay'}
+                  </SecondaryButton>
+                  <SecondaryButton
+                    onClick={() => {
+                      setDebugEnabled(true)
+                      setPlacementMode((previous) => !previous)
+                      setSelectedPoint(null)
+                    }}
+                  >
+                    {placementMode ? 'Disable Placement Mode' : 'Enable Placement Mode'}
+                  </SecondaryButton>
+                  <SecondaryButton
+                    onClick={() => {
+                      setDebugEnabled(true)
+                      setShowAnchorsPanel((previous) => !previous)
+                    }}
+                  >
+                    {showAnchorsPanel ? 'Hide Anchors Panel' : 'Show Anchors Panel'}
+                  </SecondaryButton>
+                  <SecondaryButton
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(JSON.stringify(draftAnchorArray, null, 2))
+                        setCopyStatus('Copied')
+                      } catch {
+                        setCopyStatus('Copy failed')
+                      }
+                    }}
+                  >
+                    Copy Anchors
+                  </SecondaryButton>
+                </div>
+                <pre className="puzzle-debug-output">{copyStatus || 'Use commands to inspect or place map anchors.'}</pre>
+                <PrimaryButton onClick={() => setShowDebugMenu(false)}>Close</PrimaryButton>
+              </section>
             </div>
           ) : null}
         </div>
