@@ -433,13 +433,7 @@ export function Puzzle() {
 
   const resetAllProgressDebug = () => {
     resetAllProgress()
-    setRunGrid(buildRunGrid(level.crosswordGrid))
-    setCurrentWord('')
-    setCrosswordWords([])
-    setBonusWords([])
-    setLatestBonusWord(null)
-    setFeedback('All level progress has been reset.')
-    setDebugOutput('Progress reset for all levels.')
+    window.location.assign('/')
   }
 
   return (

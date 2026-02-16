@@ -52,6 +52,14 @@ const defaultInventory: Inventory = {
   premiumPortraitDrops: 0,
 }
 
+const resetInventory: Inventory = {
+  coins: 1000,
+  hints: 0,
+  wildlifeTokens: 0,
+  portraitProgress: 0,
+  premiumPortraitDrops: 0,
+}
+
 function isBrowserStorageAvailable(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
 }
@@ -155,6 +163,7 @@ export function resetAllProgress(): void {
   if (!isBrowserStorageAvailable()) {
     return
   }
+  window.localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(resetInventory))
   for (const level of bonusRushLevels) {
     window.localStorage.removeItem(`${TIMER_STORAGE_PREFIX}.${level.id}`)
   }

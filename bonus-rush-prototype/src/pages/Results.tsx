@@ -50,6 +50,7 @@ export function Results() {
     recordRun(level.id, runFound, runStars)
   }, [level.id, runFound, runStars])
   const progress = getProgress()[level.id] ?? bestProgress
+  const displayStars = Math.max(runStars, progress.bestStars)
   const nextLevel = bonusRushLevels.find((entry) => entry.id === level.id + 1)
   const isMastered = progress.bestStars >= 3
 
@@ -58,8 +59,8 @@ export function Results() {
       <header className="results-header">
         <h2>{`Bonus Rush Level ${level.id} Results`}</h2>
       </header>
-      <div className="results-stars" aria-label={`${runStars} stars`}>
-        <StarsRow stars={runStars} />
+      <div className="results-stars" aria-label={`${displayStars} stars`}>
+        <StarsRow stars={displayStars} />
       </div>
 
       <div className="result-grid">

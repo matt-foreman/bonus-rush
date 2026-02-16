@@ -765,9 +765,7 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
                   <PrimaryButton
                     onClick={() => {
                       resetAllProgress()
-                      setShowResetProgressConfirm(false)
-                      setShowDebugMenu(false)
-                      setCopyStatus('Progress reset')
+                      window.location.assign('/')
                     }}
                   >
                     Reset All Progress
