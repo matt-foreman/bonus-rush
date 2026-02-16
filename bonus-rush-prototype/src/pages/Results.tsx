@@ -51,6 +51,7 @@ export function Results() {
   }, [level.id, runFound, runStars])
   const progress = getProgress()[level.id] ?? bestProgress
   const nextLevel = bonusRushLevels.find((entry) => entry.id === level.id + 1)
+  const isMastered = progress.bestStars >= 3
 
   return (
     <section className="results-page card page">
@@ -77,8 +78,11 @@ export function Results() {
       </div>
 
       <div className="results-actions">
-        <PrimaryButton onClick={() => navigate(`/puzzle/${level.id}`)}>Replay</PrimaryButton>
+        <PrimaryButton onClick={() => navigate(`/puzzle/${level.id}`)} disabled={isMastered}>
+          Replay
+        </PrimaryButton>
         <PrimaryButton onClick={() => navigate(nextLevel ? `/puzzle/${nextLevel.id}` : '/')}>Next Level</PrimaryButton>
+        <SecondaryButton onClick={() => navigate('/')}>Back to Map</SecondaryButton>
       </div>
     </section>
   )

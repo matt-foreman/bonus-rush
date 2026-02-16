@@ -10,11 +10,11 @@ import {
   WordWheel,
 } from '../components'
 import { bonusRushLevels } from '../data/bonusRush'
-import { getInventory, recordRun, setProgress, type Inventory, updateInventory } from '../state/storage'
+import { getInventory, getProgress, recordRun, setProgress, type Inventory, updateInventory } from '../state/storage'
 import { canPlaceWord, getSlots, placeWord, type CrosswordSlot } from '../utils/crossword'
 import { normalizeWord } from '../utils/wordGame'
 
-const START_TIME_SECONDS = 180
+const START_TIME_SECONDS = 60
 const INVALID_WORD_ANIMATION_MS = 620
 const TIMER_STORAGE_PREFIX = 'bonusRush.timerEndsAt'
 const COIN_COST = 75
@@ -61,16 +61,24 @@ function buildResultsUrl(levelId: number, found: number): string {
 }
 
 function rewardsForStars(stars: number): { coins?: number; hints?: number; wildlifeTokens?: number } {
-  if (stars >= 3) {
+  if (stars === 3) {
     return { coins: 200, hints: 1, wildlifeTokens: 1 }
   }
-  if (stars === 2) {
-    return { coins: 150, hints: 1 }
-  }
-  if (stars === 1) {
-    return { coins: 100 }
-  }
   return {}
+}
+
+function rewardRows(rewards: { coins?: number; hints?: number; wildlifeTokens?: number }): string[] {
+  const rows: string[] = []
+  if (rewards.coins) {
+    rows.push(`+${rewards.coins} coins`)
+  }
+  if (rewards.hints) {
+    rows.push(`+${rewards.hints} hint${rewards.hints > 1 ? 's' : ''}`)
+  }
+  if (rewards.wildlifeTokens) {
+    rows.push(`+${rewards.wildlifeTokens} wildlife token`)
+  }
+  return rows
 }
 
 function timerStorageKey(levelId: number): string {
@@ -177,6 +185,16 @@ export function Puzzle() {
     if (!level) {
       return
     }
+    const bestStars = getProgress()[level.id]?.bestStars ?? 0
+    if (bestStars >= 3) {
+      navigate(`/results/${level.id}`, { replace: true })
+    }
+  }, [level, navigate])
+
+  useEffect(() => {
+    if (!level) {
+      return
+    }
     setRunGrid(buildRunGrid(level.crosswordGrid))
     setCurrentWord('')
     setCrosswordWords([])
@@ -221,6 +239,7 @@ export function Puzzle() {
   const stars = level ? starsForFound(totalFound, totalAvailable) : 0
   const isComplete = totalAvailable > 0 && totalFound === totalAvailable
   const missingWords = allowedWordsList.filter((word) => !foundAllWords.has(word))
+  const completionRewards = rewardRows(rewardsForStars(stars))
 
   useEffect(() => {
     if (secondsLeft === 0 && !isComplete) {
@@ -488,9 +507,18 @@ export function Puzzle() {
         <div className="modal-backdrop" role="presentation">
           <section className="tier-complete-modal card" role="dialog" aria-modal="true" aria-labelledby="level-complete-title">
             <h2 id="level-complete-title">Congratulations! Level complete.</h2>
-            <p>{`Stars earned: ${stars}/3`}</p>
+            <p>{`Star Mastery: ${stars}/3`}</p>
+            <p>{`Words Found: ${totalFound} / ${totalAvailable}`}</p>
+            {completionRewards.length > 0 ? (
+              <ul className="tier-complete-rewards">
+                {completionRewards.map((reward) => (
+                  <li key={reward}>{reward}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>No rewards earned this run.</p>
+            )}
             <div className="tier-complete-actions">
-              <PrimaryButton onClick={() => navigate(`/puzzle/${level.id}`)}>Replay</PrimaryButton>
               <SecondaryButton
                 onClick={() => {
                   const currentIndex = bonusRushLevels.findIndex((entry) => entry.id === level.id)

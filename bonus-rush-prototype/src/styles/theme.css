@@ -1057,13 +1057,14 @@ p {
 }
 
 .modal-backdrop {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: #1d2d243f;
   display: grid;
   place-items: center;
   padding: 1rem;
   z-index: 30;
+  border-radius: inherit;
 }
 
 .time-expired-modal {
