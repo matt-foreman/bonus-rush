@@ -152,21 +152,43 @@ async function main() {
     const ctx = `Level ${level.id}`
     const allowedWords = Array.isArray(level.allowedWords) ? level.allowedWords : []
     const crosswordWords = Array.isArray(level.crosswordWords) ? level.crosswordWords : []
-    const wheelLetters = Array.isArray(level.rootLetters) ? level.rootLetters : []
+    const bonusWords = Array.isArray(level.bonusWords) ? level.bonusWords : []
+    const wheelLetters = Array.isArray(level.wheelLetters) ? level.wheelLetters : []
     const grid = Array.isArray(level.crosswordGrid) ? level.crosswordGrid : []
 
     const allowedSet = validateUniqueWordList(allowedWords, 'allowedWords', ctx, errors)
     const crosswordSet = validateUniqueWordList(crosswordWords, 'crosswordWords', ctx, errors)
+    const bonusSet = validateUniqueWordList(bonusWords, 'bonusWords', ctx, errors)
 
     for (const word of crosswordSet) {
       if (!allowedSet.has(word)) {
         errors.push(`${ctx}: crosswordWords contains "${word}" which is missing from allowedWords`)
       }
     }
+    for (const word of bonusSet) {
+      if (!allowedSet.has(word)) {
+        errors.push(`${ctx}: bonusWords contains "${word}" which is missing from allowedWords`)
+      }
+      if (crosswordSet.has(word)) {
+        errors.push(`${ctx}: word "${word}" cannot appear in both crosswordWords and bonusWords`)
+      }
+    }
+
+    const expectedAllowed = new Set([...crosswordSet, ...bonusSet])
+    for (const word of expectedAllowed) {
+      if (!allowedSet.has(word)) {
+        errors.push(`${ctx}: allowedWords missing "${word}" from crosswordWords/bonusWords`)
+      }
+    }
+    for (const word of allowedSet) {
+      if (!expectedAllowed.has(word)) {
+        errors.push(`${ctx}: allowedWords includes "${word}" not present in crosswordWords or bonusWords`)
+      }
+    }
 
     for (const word of allowedSet) {
       if (!canBuildFromWheel(word, wheelLetters)) {
-        errors.push(`${ctx}: allowed word "${word}" cannot be built from rootLetters`)
+        errors.push(`${ctx}: allowed word "${word}" cannot be built from wheelLetters`)
       }
     }
 

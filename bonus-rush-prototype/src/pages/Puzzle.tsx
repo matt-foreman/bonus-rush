@@ -50,6 +50,14 @@ function starsForFound(found: number, total: number, thresholdsPct: { oneStar: n
   return 0
 }
 
+function buildResultsUrl(levelId: number, found: number): string {
+  const params = new URLSearchParams({
+    found: String(found),
+    run: String(Date.now()),
+  })
+  return `/results/${levelId}?${params.toString()}`
+}
+
 function rewardsForStars(stars: number): { coins?: number; hints?: number; wildlifeTokens?: number } {
   if (stars >= 3) {
     return { coins: 200, hints: 1, wildlifeTokens: 1 }
@@ -393,7 +401,7 @@ export function Puzzle() {
         <CrosswordGrid grid={runGrid} />
 
         <div className="word-wheel-panel">
-          <WordWheel wheelLetters={level.rootLetters} currentWord={currentWord} onCurrentWordChange={setCurrentWord} />
+          <WordWheel wheelLetters={level.wheelLetters} currentWord={currentWord} onCurrentWordChange={setCurrentWord} />
 
           <div
             key={`current-word-pill-${invalidWordPulse}-${alreadyFoundPulse}`}
@@ -451,7 +459,7 @@ export function Puzzle() {
         onRewardVideo={addExtraTimeFromRewardVideo}
         onCoins={addExtraTimeFromCoins}
         onIap={addExtraTimeFromIap}
-        onDecline={() => navigate('/')}
+        onDecline={() => navigate(buildResultsUrl(level.id, totalFound))}
       />
 
       {showLeaveDialog ? (
@@ -485,7 +493,7 @@ export function Puzzle() {
                 onClick={() => {
                   const currentIndex = bonusRushLevels.findIndex((entry) => entry.id === level.id)
                   const nextLevel = currentIndex >= 0 ? bonusRushLevels[currentIndex + 1] : undefined
-                  navigate(nextLevel ? `/puzzle/${nextLevel.id}` : '/')
+                  navigate(nextLevel ? `/puzzle/${nextLevel.id}` : buildResultsUrl(level.id, totalFound))
                 }}
               >
                 Next Level

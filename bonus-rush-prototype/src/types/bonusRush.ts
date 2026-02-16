@@ -9,13 +9,14 @@ export interface StarThresholdsPct {
 
 export interface LevelConfig {
   id: number
-  name: string
-  rootLetters: string[]
+  title: string
+  wheelLetters: string[]
+  crosswordGrid: string[][]
   crosswordWords: string[]
+  bonusWords: string[]
   allowedWords: string[]
   totalWords: number
   starThresholdsPct: StarThresholdsPct
-  crosswordGrid: string[][]
 }
 
 export interface LadderUnlock {
