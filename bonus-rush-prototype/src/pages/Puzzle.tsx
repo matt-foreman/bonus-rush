@@ -205,12 +205,12 @@ export function Puzzle() {
     return () => window.clearInterval(timer)
   }, [level, secondsLeft, showLeaveDialog, showCompleteDialog])
 
-  const foundWordsAll = new Set([...crosswordWords, ...bonusWords])
-  const totalFound = foundWordsAll.size
+  const foundAllWords = new Set([...crosswordWords, ...bonusWords])
+  const totalFound = foundAllWords.size
   const totalAvailable = allowedWordsList.length
   const stars = level ? starsForFound(totalFound, totalAvailable, level.starThresholdsPct) : 0
-  const isComplete = totalAvailable > 0 && totalFound >= totalAvailable
-  const missingWords = allowedWordsList.filter((word) => !foundWordsAll.has(word))
+  const isComplete = totalAvailable > 0 && totalFound === totalAvailable
+  const missingWords = allowedWordsList.filter((word) => !foundAllWords.has(word))
 
   useEffect(() => {
     if (secondsLeft === 0 && !isComplete) {
@@ -288,7 +288,7 @@ export function Puzzle() {
       rejectWord('Words must be at least 3 letters.', true)
       return
     }
-    if (foundWordsAll.has(normalized)) {
+    if (foundAllWords.has(normalized)) {
       setAlreadyFoundPulse((value) => value + 1)
       setTemporaryMessage('already found')
       setFeedback('')
@@ -377,6 +377,9 @@ export function Puzzle() {
         <SecondaryButton onClick={() => setShowLeaveDialog(true)}>Back</SecondaryButton>
         <span className="timer-pill" aria-label="Timer">
           {formatTimer(secondsLeft)}
+        </span>
+        <span className="inventory-chip" aria-label="Live stars">
+          Stars: {stars}/3
         </span>
         <BonusCounter found={bonusWords.length} bonusTotal={Math.max(0, level.totalWords - crosswordWordsList.length)} />
         <div className="inventory-strip" aria-label="Inventory">
