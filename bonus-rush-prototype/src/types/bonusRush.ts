@@ -1,32 +1,25 @@
+// Legacy UI token type used by medal/badge components.
 export type TierName = 'Bronze' | 'Silver' | 'Gold'
 
-export interface TierThresholds {
+export interface StarThresholdsPct {
   oneStar: number
   twoStar: number
   threeStar: number
 }
 
-export interface TierConfig {
-  name: TierName
-  wheelLetters: string[]
-  addedBoardLetters: string[]
-  totalWords: number
-  bonusWordsTotal: number
-  thresholds: TierThresholds
-  crosswordGrid: string[][]
-  allowedWords: string[]
+export interface LevelConfig {
+  id: number
+  name: string
+  rootLetters: string[]
   crosswordWords: string[]
-}
-
-export interface PuzzleConfig {
-  id: string
-  title: string
-  wheelLetters: string[]
-  tiers: Record<TierName, TierConfig>
+  allowedWords: string[]
+  totalWords: number
+  starThresholdsPct: StarThresholdsPct
+  crosswordGrid: string[][]
 }
 
 export interface LadderUnlock {
-  puzzleId: string
+  levelId: number
   unlockDate: string
   label?: string
 }

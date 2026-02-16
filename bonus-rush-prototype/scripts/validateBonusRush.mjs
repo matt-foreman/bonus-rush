@@ -138,90 +138,75 @@ function validateUniqueWordList(words, label, ctx, errors) {
 
 async function main() {
   const mod = await loadTsModule(dataPath)
-  const puzzles = mod.bonusRushPuzzles ?? []
+  const levels = mod.bonusRushLevels ?? []
   const ladderConfig = mod.bonusRushLadderConfig
 
   const errors = []
   const warnings = []
 
-  if (!Array.isArray(puzzles) || puzzles.length === 0) {
-    errors.push('No puzzles found in bonusRushPuzzles.')
+  if (!Array.isArray(levels) || levels.length === 0) {
+    errors.push('No levels found in bonusRushLevels.')
   }
 
-  for (const puzzle of puzzles) {
-    const puzzleCtx = `Puzzle ${puzzle.id}`
-    const tiers = puzzle.tiers ?? {}
-    for (const tierName of ['Bronze', 'Silver', 'Gold']) {
-      const tier = tiers[tierName]
-      const ctx = `${puzzleCtx} ${tierName}`
-      if (!tier) {
-        errors.push(`${ctx}: missing tier config`)
-        continue
+  for (const level of levels) {
+    const ctx = `Level ${level.id}`
+    const allowedWords = Array.isArray(level.allowedWords) ? level.allowedWords : []
+    const crosswordWords = Array.isArray(level.crosswordWords) ? level.crosswordWords : []
+    const wheelLetters = Array.isArray(level.rootLetters) ? level.rootLetters : []
+    const grid = Array.isArray(level.crosswordGrid) ? level.crosswordGrid : []
+
+    const allowedSet = validateUniqueWordList(allowedWords, 'allowedWords', ctx, errors)
+    const crosswordSet = validateUniqueWordList(crosswordWords, 'crosswordWords', ctx, errors)
+
+    for (const word of crosswordSet) {
+      if (!allowedSet.has(word)) {
+        errors.push(`${ctx}: crosswordWords contains "${word}" which is missing from allowedWords`)
       }
+    }
 
-      const allowedWords = Array.isArray(tier.allowedWords) ? tier.allowedWords : []
-      const crosswordWords = Array.isArray(tier.crosswordWords) ? tier.crosswordWords : []
-      const wheelLetters = Array.isArray(tier.wheelLetters) ? tier.wheelLetters : []
-      const grid = Array.isArray(tier.crosswordGrid) ? tier.crosswordGrid : []
-
-      const allowedSet = validateUniqueWordList(allowedWords, 'allowedWords', ctx, errors)
-      const crosswordSet = validateUniqueWordList(crosswordWords, 'crosswordWords', ctx, errors)
-
-      for (const word of crosswordSet) {
-        if (!allowedSet.has(word)) {
-          errors.push(`${ctx}: crosswordWords contains "${word}" which is missing from allowedWords`)
-        }
+    for (const word of allowedSet) {
+      if (!canBuildFromWheel(word, wheelLetters)) {
+        errors.push(`${ctx}: allowed word "${word}" cannot be built from rootLetters`)
       }
+    }
 
-      for (const word of allowedSet) {
-        if (!canBuildFromWheel(word, wheelLetters)) {
-          errors.push(`${ctx}: allowed word "${word}" cannot be built from wheelLetters`)
-        }
+    if (level.totalWords !== allowedSet.size) {
+      errors.push(`${ctx}: totalWords (${level.totalWords}) must equal allowedWords.length (${allowedSet.size})`)
+    }
+
+    const onePct = level.starThresholdsPct?.oneStar ?? 0
+    const twoPct = level.starThresholdsPct?.twoStar ?? 0
+    const threePct = level.starThresholdsPct?.threeStar ?? 0
+    if (!(onePct <= twoPct && twoPct <= threePct)) {
+      errors.push(`${ctx}: starThresholdsPct must be ordered oneStar <= twoStar <= threeStar`)
+    }
+    if (threePct > 1) {
+      errors.push(`${ctx}: starThresholdsPct.threeStar (${threePct}) cannot exceed 1`)
+    }
+
+    const slotWords = getSlots(grid)
+      .map((slot) => slotWord(grid, slot))
+      .filter((word) => word.length >= 3)
+    const slotWordSet = new Set(slotWords)
+
+    for (const crosswordWord of crosswordSet) {
+      if (!slotWordSet.has(crosswordWord)) {
+        errors.push(`${ctx}: crossword word "${crosswordWord}" does not match any >=3-letter slot in crosswordGrid`)
       }
+    }
 
-      if (tier.totalWords !== allowedSet.size) {
-        errors.push(`${ctx}: totalWords (${tier.totalWords}) must equal allowedWords.length (${allowedSet.size})`)
-      }
-
-      const expectedBonus = allowedSet.size - crosswordSet.size
-      if (tier.bonusWordsTotal !== expectedBonus) {
-        errors.push(`${ctx}: bonusWordsTotal (${tier.bonusWordsTotal}) must equal allowed-crossword (${expectedBonus})`)
-      }
-
-      const one = tier.thresholds?.oneStar ?? 0
-      const two = tier.thresholds?.twoStar ?? 0
-      const three = tier.thresholds?.threeStar ?? 0
-      if (!(one <= two && two <= three)) {
-        errors.push(`${ctx}: thresholds must be ordered oneStar <= twoStar <= threeStar`)
-      }
-      if (three > allowedSet.size) {
-        errors.push(`${ctx}: thresholds.threeStar (${three}) cannot exceed totalWords (${allowedSet.size})`)
-      }
-
-      const slotWords = getSlots(grid)
-        .map((slot) => slotWord(grid, slot))
-        .filter((word) => word.length >= 3)
-      const slotWordSet = new Set(slotWords)
-
-      for (const crosswordWord of crosswordSet) {
-        if (!slotWordSet.has(crosswordWord)) {
-          errors.push(`${ctx}: crossword word "${crosswordWord}" does not match any >=3-letter slot in crosswordGrid`)
-        }
-      }
-
-      for (const gridWord of slotWordSet) {
-        if (!crosswordSet.has(gridWord)) {
-          warnings.push(`${ctx}: crosswordGrid has fillable word "${gridWord}" not listed in crosswordWords`)
-        }
+    for (const gridWord of slotWordSet) {
+      if (!crosswordSet.has(gridWord)) {
+        warnings.push(`${ctx}: crosswordGrid has fillable word "${gridWord}" not listed in crosswordWords`)
       }
     }
   }
 
   if (ladderConfig?.unlocks) {
-    const puzzleIds = new Set(puzzles.map((puzzle) => puzzle.id))
+    const levelIds = new Set(levels.map((level) => level.id))
     for (const unlock of ladderConfig.unlocks) {
-      if (!puzzleIds.has(unlock.puzzleId)) {
-        errors.push(`Ladder unlock references unknown puzzleId "${unlock.puzzleId}"`)
+      if (!levelIds.has(unlock.levelId)) {
+        errors.push(`Ladder unlock references unknown levelId "${unlock.levelId}"`)
       }
     }
   }
@@ -241,11 +226,10 @@ async function main() {
     process.exit(1)
   }
 
-  console.log(`Bonus Rush validation passed (${puzzles.length} puzzles checked).`)
+  console.log(`Bonus Rush validation passed (${levels.length} levels checked).`)
 }
 
 main().catch((error) => {
   console.error('Bonus Rush validation crashed:', error)
   process.exit(1)
 })
-

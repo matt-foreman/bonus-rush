@@ -1,9 +1,8 @@
-import type { TierName } from '../types/bonusRush'
 import { PrimaryButton, SecondaryButton } from './Buttons'
 
 interface TimeExpiredModalProps {
   open: boolean
-  tier: TierName
+  coinCost: number
   coins: number
   rewardVideosUsed: number
   iapUsed: boolean
@@ -13,15 +12,9 @@ interface TimeExpiredModalProps {
   onDecline: () => void
 }
 
-const coinCostByTier: Record<TierName, number> = {
-  Bronze: 50,
-  Silver: 100,
-  Gold: 150,
-}
-
 export function TimeExpiredModal({
   open,
-  tier,
+  coinCost,
   coins,
   rewardVideosUsed,
   iapUsed,
@@ -34,7 +27,6 @@ export function TimeExpiredModal({
     return null
   }
 
-  const coinCost = coinCostByTier[tier]
   const canUseRewardVideo = rewardVideosUsed < 3
   const canUseCoins = coins >= coinCost
   const canUseIap = !iapUsed

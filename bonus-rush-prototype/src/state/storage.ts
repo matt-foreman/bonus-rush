@@ -1,19 +1,17 @@
-import { bonusRushLadderConfig, bonusRushPuzzles } from '../data/bonusRush'
-import type { TierName } from '../types/bonusRush'
+import { bonusRushLadderConfig, bonusRushLevels } from '../data/bonusRush'
 
-const PROGRESS_STORAGE_KEY = 'bonus-rush.progress.v1'
+const PROGRESS_STORAGE_KEY = 'bonus-rush.progress.v2'
 const INVENTORY_STORAGE_KEY = 'bonus-rush.inventory.v1'
 export const DEBUG_ADVANCE_DAYS_KEY = 'bonus-rush.debugAdvanceDays'
 export const DEMO_MODE_KEY = 'bonus-rush.demoMode'
 const DAY_MS = 24 * 60 * 60 * 1000
 
-export interface TierProgress {
+export interface LevelProgress {
   bestStars: number
   bestFound: number
 }
 
-export type PuzzleProgress = Partial<Record<TierName, TierProgress>>
-export type ProgressState = Record<string, PuzzleProgress>
+export type ProgressState = Record<number, LevelProgress>
 
 export interface Inventory {
   coins: number
@@ -25,9 +23,7 @@ export interface Inventory {
 
 export type InventoryDelta = Partial<Inventory>
 
-const tierOrder: TierName[] = ['Bronze', 'Silver', 'Gold']
-
-export interface PuzzleUnlockStatus {
+export interface LevelUnlockStatus {
   isUnlocked: boolean
   isComingNextWeek: boolean
   prerequisitesMet: boolean
@@ -36,10 +32,10 @@ export interface PuzzleUnlockStatus {
   daysUntilUnlock: number
 }
 
-export interface PuzzleMasterySummary {
-  displayTier: TierName
+export interface LevelMasterySummary {
+  displayTier: 'Bronze' | 'Silver' | 'Gold'
   displayStars: number
-  isCompletedBronze: boolean
+  isMastered: boolean
 }
 
 export enum LockedReason {
@@ -55,93 +51,8 @@ const defaultInventory: Inventory = {
   premiumPortraitDrops: 0,
 }
 
-const demoInventory: Inventory = {
-  coins: 99999,
-  hints: 99,
-  wildlifeTokens: 99,
-  portraitProgress: 99,
-  premiumPortraitDrops: 99,
-}
-
-function getTodayLocalISODate(): string {
-  const now = getEffectiveTodayDate()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function getDebugAdvanceDays(): number {
-  if (!isBrowserStorageAvailable()) {
-    return 0
-  }
-
-  const raw = window.localStorage.getItem(DEBUG_ADVANCE_DAYS_KEY)
-  const parsed = Number(raw)
-  if (!Number.isFinite(parsed)) {
-    return 0
-  }
-
-  return Math.trunc(parsed)
-}
-
-function getEffectiveTodayDate(): Date {
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-
-  const debugAdvanceDays = getDebugAdvanceDays()
-  if (debugAdvanceDays !== 0) {
-    return new Date(now.getTime() + debugAdvanceDays * DAY_MS)
-  }
-
-  return now
-}
-
-function parseISODate(dateISO: string | undefined): Date | null {
-  if (!dateISO) {
-    return null
-  }
-
-  const [year, month, day] = dateISO.split('-').map((part) => Number(part))
-  if (!year || !month || !day) {
-    return null
-  }
-
-  const parsed = new Date(year, month - 1, day)
-  parsed.setHours(0, 0, 0, 0)
-  return parsed
-}
-
-export function getEffectiveTodayISODate(): string {
-  return getTodayLocalISODate()
-}
-
-export function isDemoModeEnabled(): boolean {
-  if (!isBrowserStorageAvailable()) {
-    return false
-  }
-
-  return window.localStorage.getItem(DEMO_MODE_KEY) === 'true'
-}
-
-export function setDemoModeEnabled(enabled: boolean): void {
-  if (!isBrowserStorageAvailable()) {
-    return
-  }
-
-  window.localStorage.setItem(DEMO_MODE_KEY, enabled ? 'true' : 'false')
-
-  if (enabled) {
-    window.localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(demoInventory))
-  }
-}
-
-function clampMinZero(value: number): number {
-  return Math.max(0, value)
-}
-
-function clampStars(value: number): number {
-  return Math.max(0, Math.min(3, value))
+function isBrowserStorageAvailable(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
 }
 
 function parseJSON<T>(raw: string | null): T | null {
@@ -156,16 +67,12 @@ function parseJSON<T>(raw: string | null): T | null {
   }
 }
 
-function isBrowserStorageAvailable(): boolean {
-  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+function clampMinZero(value: number): number {
+  return Math.max(0, value)
 }
 
-function sanitizeTierProgress(value: unknown): TierProgress {
-  const maybe = value as Partial<TierProgress> | undefined
-  return {
-    bestStars: clampStars(Number(maybe?.bestStars ?? 0)),
-    bestFound: clampMinZero(Number(maybe?.bestFound ?? 0)),
-  }
+function clampStars(value: number): number {
+  return Math.max(0, Math.min(3, value))
 }
 
 function sanitizeProgressState(value: unknown): ProgressState {
@@ -173,20 +80,19 @@ function sanitizeProgressState(value: unknown): ProgressState {
     return {}
   }
 
-  const entries = Object.entries(value as Record<string, unknown>).map(([puzzleId, puzzleValue]) => {
-    const puzzleProgress: PuzzleProgress = {}
-    if (puzzleValue && typeof puzzleValue === 'object') {
-      for (const tier of tierOrder) {
-        const maybeTier = (puzzleValue as Record<string, unknown>)[tier]
-        if (maybeTier) {
-          puzzleProgress[tier] = sanitizeTierProgress(maybeTier)
-        }
-      }
+  const next: ProgressState = {}
+  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>)) {
+    const levelId = Number(rawKey)
+    if (!Number.isFinite(levelId)) {
+      continue
     }
-    return [puzzleId, puzzleProgress] as const
-  })
-
-  return Object.fromEntries(entries)
+    const maybe = (rawValue as Partial<LevelProgress> | null) ?? {}
+    next[levelId] = {
+      bestStars: clampStars(Number(maybe.bestStars ?? 0)),
+      bestFound: clampMinZero(Number(maybe.bestFound ?? 0)),
+    }
+  }
+  return next
 }
 
 function sanitizeInventory(value: unknown): Inventory {
@@ -196,92 +102,70 @@ function sanitizeInventory(value: unknown): Inventory {
     hints: clampMinZero(Number(maybe.hints ?? defaultInventory.hints)),
     wildlifeTokens: clampMinZero(Number(maybe.wildlifeTokens ?? defaultInventory.wildlifeTokens)),
     portraitProgress: clampMinZero(Number(maybe.portraitProgress ?? defaultInventory.portraitProgress)),
-    premiumPortraitDrops: clampMinZero(
-      Number(maybe.premiumPortraitDrops ?? defaultInventory.premiumPortraitDrops),
-    ),
+    premiumPortraitDrops: clampMinZero(Number(maybe.premiumPortraitDrops ?? defaultInventory.premiumPortraitDrops)),
   }
+}
+
+function getDebugAdvanceDays(): number {
+  if (!isBrowserStorageAvailable()) {
+    return 0
+  }
+  const raw = window.localStorage.getItem(DEBUG_ADVANCE_DAYS_KEY)
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : 0
+}
+
+function getEffectiveTodayDate(): Date {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const debugAdvanceDays = getDebugAdvanceDays()
+  return debugAdvanceDays === 0 ? now : new Date(now.getTime() + debugAdvanceDays * DAY_MS)
+}
+
+function parseISODate(dateISO: string | undefined): Date | null {
+  if (!dateISO) {
+    return null
+  }
+  const [year, month, day] = dateISO.split('-').map((part) => Number(part))
+  if (!year || !month || !day) {
+    return null
+  }
+  const parsed = new Date(year, month - 1, day)
+  parsed.setHours(0, 0, 0, 0)
+  return parsed
 }
 
 export function getProgress(): ProgressState {
   if (!isBrowserStorageAvailable()) {
     return {}
   }
-
-  const parsed = parseJSON<unknown>(window.localStorage.getItem(PROGRESS_STORAGE_KEY))
-  return sanitizeProgressState(parsed)
+  return sanitizeProgressState(parseJSON(window.localStorage.getItem(PROGRESS_STORAGE_KEY)))
 }
 
 export function setProgress(progress: ProgressState): void {
   if (!isBrowserStorageAvailable()) {
     return
   }
-
-  const sanitized = sanitizeProgressState(progress)
-  window.localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(sanitized))
+  window.localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(sanitizeProgressState(progress)))
 }
 
-export function recordRun(puzzleId: string, tier: TierName, found: number, stars: number): ProgressState {
+export function recordRun(levelId: number, found: number, stars: number): ProgressState {
   const progress = getProgress()
-  const puzzleProgress = progress[puzzleId] ?? {}
-  const current = puzzleProgress[tier] ?? { bestFound: 0, bestStars: 0 }
-
-  const nextTierProgress: TierProgress = {
-    bestFound: Math.max(current.bestFound, clampMinZero(found)),
-    bestStars: Math.max(current.bestStars, clampStars(stars)),
-  }
-
-  const nextProgress: ProgressState = {
+  const current = progress[levelId] ?? { bestFound: 0, bestStars: 0 }
+  const next: ProgressState = {
     ...progress,
-    [puzzleId]: {
-      ...puzzleProgress,
-      [tier]: nextTierProgress,
+    [levelId]: {
+      bestFound: Math.max(current.bestFound, clampMinZero(found)),
+      bestStars: Math.max(current.bestStars, clampStars(stars)),
     },
   }
-
-  setProgress(nextProgress)
-  return nextProgress
+  setProgress(next)
+  return next
 }
 
-export function isTierUnlocked(puzzleId: string, tier: TierName): boolean {
-  if (isDemoModeEnabled()) {
-    return true
-  }
-
-  if (!isPuzzleUnlocked(puzzleId)) {
-    return false
-  }
-
-  if (tier === 'Bronze') {
-    return true
-  }
-
-  const progress = getProgress()
-  const puzzleProgress = progress[puzzleId]
-
-  if (tier === 'Silver') {
-    return (puzzleProgress?.Bronze?.bestStars ?? 0) >= 3
-  }
-
-  return (puzzleProgress?.Silver?.bestStars ?? 0) >= 3
-}
-
-export function isPuzzleUnlocked(puzzleId: string): boolean {
-  return getPuzzleUnlockStatus(puzzleId).isUnlocked
-}
-
-export function getPuzzleUnlockStatus(puzzleId: string): PuzzleUnlockStatus {
-  if (isDemoModeEnabled()) {
-    return {
-      isUnlocked: true,
-      isComingNextWeek: false,
-      prerequisitesMet: true,
-      weeklyDateReached: true,
-      daysUntilUnlock: 0,
-    }
-  }
-
-  const puzzleIndex = bonusRushPuzzles.findIndex((puzzle) => puzzle.id === puzzleId)
-  if (puzzleIndex === -1) {
+export function getLevelUnlockStatus(levelId: number): LevelUnlockStatus {
+  const levelIndex = bonusRushLevels.findIndex((level) => level.id === levelId)
+  if (levelIndex === -1) {
     return {
       isUnlocked: false,
       isComingNextWeek: false,
@@ -291,18 +175,17 @@ export function getPuzzleUnlockStatus(puzzleId: string): PuzzleUnlockStatus {
     }
   }
 
-  const unlock = bonusRushLadderConfig.unlocks.find((item) => item.puzzleId === puzzleId)
+  const unlock = bonusRushLadderConfig.unlocks.find((item) => item.levelId === levelId)
   const today = getEffectiveTodayDate()
   const unlockDate = parseISODate(unlock?.unlockDate)
   const daysUntilUnlock = unlockDate ? Math.ceil((unlockDate.getTime() - today.getTime()) / DAY_MS) : 0
   const weeklyDateReached = !unlockDate || daysUntilUnlock <= 0
 
   let prerequisitesMet = true
-
-  if (puzzleIndex > 0) {
-    const previousPuzzleId = bonusRushPuzzles[puzzleIndex - 1].id
-    const previousBronzeStars = getProgress()[previousPuzzleId]?.Bronze?.bestStars ?? 0
-    prerequisitesMet = previousBronzeStars >= 1
+  if (levelIndex > 0) {
+    const previousLevelId = bonusRushLevels[levelIndex - 1].id
+    const previousStars = getProgress()[previousLevelId]?.bestStars ?? 0
+    prerequisitesMet = previousStars >= 1
   }
 
   const isUnlocked = prerequisitesMet && weeklyDateReached
@@ -318,70 +201,48 @@ export function getPuzzleUnlockStatus(puzzleId: string): PuzzleUnlockStatus {
   }
 }
 
-export function getLockReason(puzzleId: string): LockedReason | null {
-  const unlockStatus = getPuzzleUnlockStatus(puzzleId)
+export function isLevelUnlocked(levelId: number): boolean {
+  return getLevelUnlockStatus(levelId).isUnlocked
+}
+
+export function getLockReason(levelId: number): LockedReason | null {
+  const unlockStatus = getLevelUnlockStatus(levelId)
   if (unlockStatus.isUnlocked) {
     return null
   }
-
   if (!unlockStatus.prerequisitesMet) {
     return LockedReason.PreviousLevel
   }
-
   if (!unlockStatus.weeklyDateReached) {
     return LockedReason.WeeklyUnlock
   }
-
   return LockedReason.PreviousLevel
 }
 
-export function getInventory(): Inventory {
-  if (isDemoModeEnabled()) {
-    return { ...demoInventory }
+export function getLevelMasterySummary(levelId: number): LevelMasterySummary {
+  const stars = getProgress()[levelId]?.bestStars ?? 0
+  if (stars >= 3) {
+    return { displayTier: 'Gold', displayStars: stars, isMastered: true }
   }
+  if (stars >= 2) {
+    return { displayTier: 'Silver', displayStars: stars, isMastered: false }
+  }
+  return { displayTier: 'Bronze', displayStars: stars, isMastered: false }
+}
 
+export function getInventory(): Inventory {
   if (!isBrowserStorageAvailable()) {
     return { ...defaultInventory }
   }
 
-  const parsed = parseJSON<unknown>(window.localStorage.getItem(INVENTORY_STORAGE_KEY))
+  const parsed = parseJSON(window.localStorage.getItem(INVENTORY_STORAGE_KEY))
   if (!parsed) {
     window.localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(defaultInventory))
     return { ...defaultInventory }
   }
-
   const sanitized = sanitizeInventory(parsed)
   window.localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(sanitized))
   return sanitized
-}
-
-export function getPuzzleMasterySummary(puzzleId: string): PuzzleMasterySummary {
-  const progress = getProgress()[puzzleId]
-  const bronzeStars = progress?.Bronze?.bestStars ?? 0
-  const silverStars = progress?.Silver?.bestStars ?? 0
-  const goldStars = progress?.Gold?.bestStars ?? 0
-
-  if (goldStars > 0) {
-    return {
-      displayTier: 'Gold',
-      displayStars: goldStars,
-      isCompletedBronze: bronzeStars >= 1,
-    }
-  }
-
-  if (silverStars > 0) {
-    return {
-      displayTier: 'Silver',
-      displayStars: silverStars,
-      isCompletedBronze: bronzeStars >= 1,
-    }
-  }
-
-  return {
-    displayTier: 'Bronze',
-    displayStars: bronzeStars,
-    isCompletedBronze: bronzeStars >= 1,
-  }
 }
 
 export function updateInventory(delta: InventoryDelta): Inventory {
@@ -391,14 +252,11 @@ export function updateInventory(delta: InventoryDelta): Inventory {
     hints: clampMinZero(current.hints + (delta.hints ?? 0)),
     wildlifeTokens: clampMinZero(current.wildlifeTokens + (delta.wildlifeTokens ?? 0)),
     portraitProgress: clampMinZero(current.portraitProgress + (delta.portraitProgress ?? 0)),
-    premiumPortraitDrops: clampMinZero(
-      current.premiumPortraitDrops + (delta.premiumPortraitDrops ?? 0),
-    ),
+    premiumPortraitDrops: clampMinZero(current.premiumPortraitDrops + (delta.premiumPortraitDrops ?? 0)),
   }
-
   if (isBrowserStorageAvailable()) {
     window.localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(next))
   }
-
   return next
 }
+

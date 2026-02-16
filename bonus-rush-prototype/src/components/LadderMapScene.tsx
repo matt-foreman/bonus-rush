@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import bonusRushMapWithLogo from '../assets/bonus_rush_map_with_logo_1080x1920.png'
 import { LockedReason } from '../state/storage'
-import type { TierName } from '../types/bonusRush'
 import { CoinPill } from './CoinPill'
 import { MedalBadge } from './MedalBadge'
 import { Tooltip } from './Tooltip'
@@ -69,18 +68,18 @@ interface SelectedPoint {
 type DraftAnchors = Record<number, { x: number; y: number }>
 
 export interface LadderMapSceneLevel {
-  puzzleId: string
+  levelId: number
   levelNumber: number
   unlocked: boolean
   lockReason: LockedReason | null
-  displayTier: TierName
+  displayTier: 'Bronze' | 'Silver' | 'Gold'
   displayStars: number
 }
 
 interface LadderMapSceneProps {
   levels: LadderMapSceneLevel[]
   coins: number
-  onSelectLevel: (puzzleId: string) => void
+  onSelectLevel: (levelId: number) => void
 }
 
 function buildMappingParams(containerW: number, containerH: number, naturalW: number, naturalH: number): MappingParams {
@@ -504,7 +503,7 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
 
               return (
                 <button
-                  key={level.puzzleId}
+                  key={level.levelId}
                   type="button"
                   className={`mapNode ${isLocked ? 'locked' : ''}`}
                   style={{
@@ -530,7 +529,7 @@ export function LadderMapScene({ levels, coins, onSelectLevel }: LadderMapSceneP
                       return
                     }
                     setActiveTooltip(null)
-                    onSelectLevel(level.puzzleId)
+                    onSelectLevel(level.levelId)
                   }}
                 >
                   <span className="mapNodeLevel">Lv {level.levelNumber}</span>

@@ -1,55 +1,27 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   BonusCounter,
   CrosswordGrid,
   PrimaryButton,
   ProgressBar,
   SecondaryButton,
-  TierBadge,
   TimeExpiredModal,
   WordWheel,
 } from '../components'
-import { bonusRushPuzzles } from '../data/bonusRush'
-import {
-  getInventory,
-  getProgress,
-  isTierUnlocked,
-  recordRun,
-  setProgress,
-  type Inventory,
-  type InventoryDelta,
-  updateInventory,
-} from '../state/storage'
-import type { TierConfig, TierName } from '../types/bonusRush'
+import { bonusRushLevels } from '../data/bonusRush'
+import { getInventory, recordRun, setProgress, type Inventory, updateInventory } from '../state/storage'
 import { canPlaceWord, getSlots, placeWord, type CrosswordSlot } from '../utils/crossword'
 import { normalizeWord } from '../utils/wordGame'
 
 const START_TIME_SECONDS = 180
 const INVALID_WORD_ANIMATION_MS = 620
-const tiers: TierName[] = ['Bronze', 'Silver', 'Gold']
-const coinCostByTier: Record<TierName, number> = { Bronze: 50, Silver: 100, Gold: 150 }
 const TIMER_STORAGE_PREFIX = 'bonusRush.timerEndsAt'
+const COIN_COST = 75
 const DEBUG_AVAILABLE = import.meta.env.DEV
-const CLAIMED_RUNS_KEY = 'bonus-rush.claimed-runs.v1'
 
-function buildRunGrid(tier: TierConfig): string[][] {
-  const fixedLetters = new Set(tier.addedBoardLetters.map((letter) => letter.toUpperCase()))
-
-  return tier.crosswordGrid.map((row) =>
-    row.map((cell) => {
-      if (cell === '#') {
-        return '#'
-      }
-
-      const normalized = cell.toUpperCase()
-      if (fixedLetters.has(normalized)) {
-        return normalized
-      }
-
-      return ''
-    }),
-  )
+function buildRunGrid(grid: string[][]): string[][] {
+  return grid.map((row) => row.map((cell) => (cell === '#' ? '#' : '')))
 }
 
 function formatTimer(secondsLeft: number): string {
@@ -58,143 +30,76 @@ function formatTimer(secondsLeft: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-function starsForFound(found: number, tier: TierConfig): number {
-  if (found >= tier.thresholds.threeStar) {
+function thresholdCount(total: number, pct: number): number {
+  return Math.max(0, Math.min(total, Math.ceil(total * pct)))
+}
+
+function starsForFound(found: number, total: number, thresholdsPct: { oneStar: number; twoStar: number; threeStar: number }): number {
+  const one = thresholdCount(total, thresholdsPct.oneStar)
+  const two = thresholdCount(total, thresholdsPct.twoStar)
+  const three = thresholdCount(total, thresholdsPct.threeStar)
+  if (found >= three) {
     return 3
   }
-  if (found >= tier.thresholds.twoStar) {
+  if (found >= two) {
     return 2
   }
-  if (found >= tier.thresholds.oneStar) {
+  if (found >= one) {
     return 1
   }
   return 0
 }
 
-function timerStorageKey(puzzleId: string, tier: TierName): string {
-  return `${TIMER_STORAGE_PREFIX}.${puzzleId}.${tier}`
+function rewardsForStars(stars: number): { coins?: number; hints?: number; wildlifeTokens?: number } {
+  if (stars >= 3) {
+    return { coins: 200, hints: 1, wildlifeTokens: 1 }
+  }
+  if (stars === 2) {
+    return { coins: 150, hints: 1 }
+  }
+  if (stars === 1) {
+    return { coins: 100 }
+  }
+  return {}
 }
 
-function readStoredTimerSeconds(puzzleId: string, tier: TierName): number | null {
-  const raw = window.localStorage.getItem(timerStorageKey(puzzleId, tier))
+function timerStorageKey(levelId: number): string {
+  return `${TIMER_STORAGE_PREFIX}.${levelId}`
+}
+
+function readStoredTimerSeconds(levelId: number): number | null {
+  const raw = window.localStorage.getItem(timerStorageKey(levelId))
   if (!raw) {
     return null
   }
-
   const endsAt = Number(raw)
   if (!Number.isFinite(endsAt) || endsAt <= 0) {
-    window.localStorage.removeItem(timerStorageKey(puzzleId, tier))
+    window.localStorage.removeItem(timerStorageKey(levelId))
     return null
   }
-
   const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000))
   if (remaining === 0) {
-    window.localStorage.removeItem(timerStorageKey(puzzleId, tier))
+    window.localStorage.removeItem(timerStorageKey(levelId))
   }
   return remaining
 }
 
-function writeStoredTimerSeconds(puzzleId: string, tier: TierName, remainingSeconds: number): void {
-  const key = timerStorageKey(puzzleId, tier)
+function writeStoredTimerSeconds(levelId: number, remainingSeconds: number): void {
+  const key = timerStorageKey(levelId)
   if (remainingSeconds <= 0) {
     window.localStorage.removeItem(key)
     return
   }
-
-  const endsAt = Date.now() + remainingSeconds * 1000
-  window.localStorage.setItem(key, String(endsAt))
+  window.localStorage.setItem(key, String(Date.now() + remainingSeconds * 1000))
 }
 
-function getInitialStoredTimerSeconds(puzzleId: string, tier: TierName): number {
-  const key = timerStorageKey(puzzleId, tier)
-  const raw = window.localStorage.getItem(key)
-  if (!raw) {
-    writeStoredTimerSeconds(puzzleId, tier, START_TIME_SECONDS)
-    return START_TIME_SECONDS
+function getInitialStoredTimerSeconds(levelId: number): number {
+  const current = readStoredTimerSeconds(levelId)
+  if (current !== null) {
+    return current
   }
-
-  const endsAt = Number(raw)
-  if (!Number.isFinite(endsAt) || endsAt <= 0) {
-    window.localStorage.removeItem(key)
-    return 0
-  }
-
-  const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000))
-  if (remaining === 0) {
-    window.localStorage.removeItem(key)
-  }
-  return remaining
-}
-
-function rewardsForTierAndStars(tier: TierName, stars: number): InventoryDelta {
-  if (stars <= 0) {
-    return {}
-  }
-
-  const table: Record<TierName, Record<number, InventoryDelta>> = {
-    Bronze: {
-      1: { coins: 100 },
-      2: { coins: 150, hints: 1 },
-      3: { coins: 200, hints: 1, wildlifeTokens: 1 },
-    },
-    Silver: {
-      1: { coins: 150, hints: 1 },
-      2: { coins: 200, hints: 2, wildlifeTokens: 1 },
-      3: { coins: 250, wildlifeTokens: 1, portraitProgress: 1 },
-    },
-    Gold: {
-      1: { coins: 200, hints: 2 },
-      2: { coins: 250, wildlifeTokens: 1, portraitProgress: 1 },
-      3: { coins: 300, wildlifeTokens: 1, premiumPortraitDrops: 1 },
-    },
-  }
-
-  return table[tier][stars] ?? {}
-}
-
-function rewardRows(delta: InventoryDelta): string[] {
-  const rows: string[] = []
-  if (delta.coins) {
-    rows.push(`+${delta.coins} coins`)
-  }
-  if (delta.hints) {
-    rows.push(`+${delta.hints} hint${delta.hints > 1 ? 's' : ''}`)
-  }
-  if (delta.wildlifeTokens) {
-    rows.push(`+${delta.wildlifeTokens} wildlife token`)
-  }
-  if (delta.portraitProgress) {
-    rows.push(`+${delta.portraitProgress} portrait progress`)
-  }
-  if (delta.premiumPortraitDrops) {
-    rows.push(`+${delta.premiumPortraitDrops} premium portrait drop`)
-  }
-  return rows
-}
-
-function getClaimedRunIds(): Set<string> {
-  if (typeof window === 'undefined') {
-    return new Set()
-  }
-
-  try {
-    const raw = window.localStorage.getItem(CLAIMED_RUNS_KEY)
-    if (!raw) {
-      return new Set()
-    }
-    const parsed = JSON.parse(raw) as string[]
-    return new Set(parsed)
-  } catch {
-    return new Set()
-  }
-}
-
-function saveClaimedRunIds(ids: Set<string>): void {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(CLAIMED_RUNS_KEY, JSON.stringify([...ids]))
+  writeStoredTimerSeconds(levelId, START_TIME_SECONDS)
+  return START_TIME_SECONDS
 }
 
 function wordFromGridSlot(grid: string[][], slot: CrosswordSlot): string {
@@ -212,57 +117,27 @@ function findTemplateSlotForWord(templateGrid: string[][], runGrid: string[][], 
   if (!normalizedWord) {
     return null
   }
-
   const templateSlots = getSlots(templateGrid)
   for (const slot of templateSlots) {
     if (slot.length !== normalizedWord.length) {
       continue
     }
-
     if (wordFromGridSlot(templateGrid, slot) !== normalizedWord) {
       continue
     }
-
     if (canPlaceWord(runGrid, normalizedWord, slot)) {
       return slot
     }
   }
-
   return null
 }
 
 export function Puzzle() {
   const navigate = useNavigate()
   const { puzzleId } = useParams<{ puzzleId: string }>()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const levelId = Number(puzzleId)
+  const level = useMemo(() => bonusRushLevels.find((entry) => entry.id === levelId), [levelId])
 
-  const puzzle = useMemo(() => bonusRushPuzzles.find((entry) => entry.id === puzzleId), [puzzleId])
-
-  const requestedTier = searchParams.get('tier')
-  const resolvedTier = useMemo<TierName>(() => {
-    if (!puzzle) {
-      return 'Bronze'
-    }
-
-    const progress = getProgress()[puzzle.id]
-    const isMastered = (tier: TierName) => {
-      const bestStars = progress?.[tier]?.bestStars ?? 0
-      return bestStars >= 3
-    }
-
-    const firstPlayableTier = tiers.find((tier) => isTierUnlocked(puzzle.id, tier) && !isMastered(tier))
-
-    if (tiers.includes(requestedTier as TierName)) {
-      const tier = requestedTier as TierName
-      if (isTierUnlocked(puzzle.id, tier) && !isMastered(tier)) {
-        return tier
-      }
-    }
-
-    return firstPlayableTier ?? tiers.find((tier) => isTierUnlocked(puzzle.id, tier)) ?? 'Bronze'
-  }, [puzzle, requestedTier])
-
-  const [activeTier, setActiveTier] = useState<TierName>(resolvedTier)
   const [runGrid, setRunGrid] = useState<string[][]>([])
   const [currentWord, setCurrentWord] = useState('')
   const [crosswordWords, setCrosswordWords] = useState<string[]>([])
@@ -274,46 +149,25 @@ export function Puzzle() {
   const [iapUsed, setIapUsed] = useState(false)
   const [showTimeExpiredModal, setShowTimeExpiredModal] = useState(false)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
-  const [pausedSeconds, setPausedSeconds] = useState<number | null>(null)
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false)
   const [invalidWordPulse, setInvalidWordPulse] = useState(0)
   const [alreadyFoundPulse, setAlreadyFoundPulse] = useState(0)
   const [temporaryMessage, setTemporaryMessage] = useState('')
+  const [feedback, setFeedback] = useState('')
   const [showDebugMenu, setShowDebugMenu] = useState(false)
   const [showResetProgressConfirm, setShowResetProgressConfirm] = useState(false)
   const [debugOutput, setDebugOutput] = useState('')
-  const [feedback, setFeedback] = useState('')
-  const [showCompletionDialog, setShowCompletionDialog] = useState(false)
-  const [completionRewards, setCompletionRewards] = useState<string[]>([])
-  const [completionRunClaimId, setCompletionRunClaimId] = useState('')
-  const [runSessionId, setRunSessionId] = useState(() => Date.now())
 
-  const tierConfig = puzzle?.tiers[activeTier]
-  const allowedWordsList = useMemo(
-    () => (tierConfig ? tierConfig.allowedWords.map((word) => normalizeWord(word)).filter(Boolean) : []),
-    [tierConfig],
-  )
+  const allowedWordsList = useMemo(() => (level ? level.allowedWords.map((word) => normalizeWord(word)).filter(Boolean) : []), [level])
   const allowedWordsSet = useMemo(() => new Set(allowedWordsList), [allowedWordsList])
-  const crosswordWordsList = useMemo(() => {
-    if (!tierConfig?.crosswordWords || tierConfig.crosswordWords.length === 0) {
-      return allowedWordsList
-    }
-    return tierConfig.crosswordWords.map((word) => normalizeWord(word)).filter(Boolean)
-  }, [tierConfig, allowedWordsList])
+  const crosswordWordsList = useMemo(() => (level ? level.crosswordWords.map((word) => normalizeWord(word)).filter(Boolean) : []), [level])
   const crosswordWordsSet = useMemo(() => new Set(crosswordWordsList), [crosswordWordsList])
 
   useEffect(() => {
-    setActiveTier(resolvedTier)
-    if (searchParams.get('tier') !== resolvedTier) {
-      setSearchParams({ tier: resolvedTier }, { replace: true })
-    }
-  }, [resolvedTier, puzzleId, searchParams, setSearchParams])
-
-  useEffect(() => {
-    if (!puzzle || !tierConfig) {
+    if (!level) {
       return
     }
-
-    setRunGrid(buildRunGrid(tierConfig))
+    setRunGrid(buildRunGrid(level.crosswordGrid))
     setCurrentWord('')
     setCrosswordWords([])
     setBonusWords([])
@@ -322,67 +176,67 @@ export function Puzzle() {
     setRewardVideosUsed(0)
     setIapUsed(false)
     setShowTimeExpiredModal(false)
+    setShowLeaveDialog(false)
+    setShowCompleteDialog(false)
     setInvalidWordPulse(0)
     setAlreadyFoundPulse(0)
     setTemporaryMessage('')
+    setFeedback('')
     setShowDebugMenu(false)
     setShowResetProgressConfirm(false)
     setDebugOutput('')
-    setFeedback('')
-    setShowCompletionDialog(false)
-    setCompletionRewards([])
-    setCompletionRunClaimId('')
-    setRunSessionId(Date.now())
-    setSecondsLeft(getInitialStoredTimerSeconds(puzzle.id, activeTier))
-  }, [puzzle, tierConfig, activeTier])
+    setSecondsLeft(getInitialStoredTimerSeconds(level.id))
+  }, [level])
 
   useEffect(() => {
-    if (!tierConfig || !puzzle || secondsLeft <= 0 || showLeaveDialog || showCompletionDialog) {
+    if (!level || secondsLeft <= 0 || showLeaveDialog || showCompleteDialog) {
       return
     }
 
     const timer = window.setInterval(() => {
-      const remaining = readStoredTimerSeconds(puzzle.id, activeTier)
+      const remaining = readStoredTimerSeconds(level.id)
       if (remaining === null) {
         window.clearInterval(timer)
         setSecondsLeft(0)
         return
       }
-
       setSecondsLeft(remaining)
     }, 1000)
-
     return () => window.clearInterval(timer)
-  }, [tierConfig, activeTier, secondsLeft, puzzle, showLeaveDialog, showCompletionDialog])
+  }, [level, secondsLeft, showLeaveDialog, showCompleteDialog])
+
+  const foundWordsAll = new Set([...crosswordWords, ...bonusWords])
+  const totalFound = foundWordsAll.size
+  const totalAvailable = allowedWordsList.length
+  const stars = level ? starsForFound(totalFound, totalAvailable, level.starThresholdsPct) : 0
+  const isComplete = totalAvailable > 0 && totalFound >= totalAvailable
+  const missingWords = allowedWordsList.filter((word) => !foundWordsAll.has(word))
 
   useEffect(() => {
-    if (!tierConfig) {
-      return
-    }
-
-    const foundCount = new Set([...crosswordWords, ...bonusWords]).size
-    const levelComplete = foundCount === allowedWordsList.length
-    if (secondsLeft === 0 && !levelComplete) {
+    if (secondsLeft === 0 && !isComplete) {
       setShowTimeExpiredModal(true)
-      return
     }
-
-  }, [secondsLeft, bonusWords, crosswordWords, activeTier, tierConfig, allowedWordsList.length])
+  }, [secondsLeft, isComplete])
 
   useEffect(() => {
-    setCurrentWord('')
-  }, [crosswordWords.length, bonusWords.length])
+    if (!level || !isComplete || showCompleteDialog) {
+      return
+    }
+    const rewardDelta = rewardsForStars(stars)
+    setInventory(updateInventory(rewardDelta))
+    recordRun(level.id, totalFound, stars)
+    window.localStorage.removeItem(timerStorageKey(level.id))
+    setShowCompleteDialog(true)
+  }, [level, isComplete, showCompleteDialog, totalFound, stars])
 
   useEffect(() => {
     if (invalidWordPulse === 0) {
       return
     }
-
     const timeout = window.setTimeout(() => {
       setCurrentWord('')
       setInvalidWordPulse(0)
     }, INVALID_WORD_ANIMATION_MS)
-
     return () => window.clearTimeout(timeout)
   }, [invalidWordPulse])
 
@@ -390,11 +244,7 @@ export function Puzzle() {
     if (alreadyFoundPulse === 0) {
       return
     }
-
-    const timeout = window.setTimeout(() => {
-      setAlreadyFoundPulse(0)
-    }, 560)
-
+    const timeout = window.setTimeout(() => setAlreadyFoundPulse(0), 560)
     return () => window.clearTimeout(timeout)
   }, [alreadyFoundPulse])
 
@@ -402,87 +252,17 @@ export function Puzzle() {
     if (!temporaryMessage) {
       return
     }
-
-    const timeout = window.setTimeout(() => {
-      setTemporaryMessage('')
-    }, 900)
-
+    const timeout = window.setTimeout(() => setTemporaryMessage(''), 900)
     return () => window.clearTimeout(timeout)
   }, [temporaryMessage])
 
-  useEffect(() => {
-    if (!DEBUG_AVAILABLE || !tierConfig) {
-      return
-    }
-
-    if (tierConfig.totalWords !== allowedWordsList.length) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[BonusRush] totalWords mismatch for ${puzzle?.id ?? 'unknown'} ${activeTier}: totalWords=${tierConfig.totalWords}, allowedWords=${allowedWordsList.length}. Using allowedWords length for completion.`,
-      )
-    }
-  }, [tierConfig, allowedWordsList.length, puzzle?.id, activeTier])
-
-  if (!puzzle || !tierConfig) {
+  if (!level) {
     return (
       <section className="card page">
-        <h2>Puzzle not found</h2>
+        <h2>Level not found</h2>
         <SecondaryButton onClick={() => navigate('/')}>Back</SecondaryButton>
       </section>
     )
-  }
-
-  const foundWordsAll = new Set([...crosswordWords, ...bonusWords])
-  const totalFound = foundWordsAll.size
-  const totalAvailable = allowedWordsList.length
-  const missingWords = allowedWordsList.filter((word) => !foundWordsAll.has(word))
-  const isRunComplete = totalAvailable > 0 && totalFound === totalAvailable
-  const completionStars = starsForFound(totalFound, tierConfig)
-  const completionRewardDelta = rewardsForTierAndStars(activeTier, completionStars)
-  const nextTier: TierName | null = activeTier === 'Bronze' ? 'Silver' : activeTier === 'Silver' ? 'Gold' : null
-
-  useEffect(() => {
-    if (!puzzle || !tierConfig || !isRunComplete || showCompletionDialog) {
-      return
-    }
-
-    const runClaimId = `${puzzle.id}:${activeTier}:${runSessionId}`
-    const claimed = getClaimedRunIds()
-    if (!claimed.has(runClaimId) && completionStars > 0) {
-      const nextInventory = updateInventory(completionRewardDelta)
-      claimed.add(runClaimId)
-      saveClaimedRunIds(claimed)
-      setInventory(nextInventory)
-    } else {
-      setInventory(getInventory())
-    }
-
-    recordRun(puzzle.id, activeTier, totalFound, completionStars)
-    window.localStorage.removeItem(timerStorageKey(puzzle.id, activeTier))
-    setCompletionRewards(rewardRows(completionRewardDelta))
-    setCompletionRunClaimId(runClaimId)
-    setShowCompletionDialog(true)
-  }, [
-    puzzle,
-    tierConfig,
-    isRunComplete,
-    showCompletionDialog,
-    activeTier,
-    runSessionId,
-    completionStars,
-    completionRewardDelta,
-    totalFound,
-  ])
-
-  const switchTier = (tier: TierName) => {
-    const bestStars = getProgress()[puzzle.id]?.[tier]?.bestStars ?? 0
-    const isMastered = bestStars >= 3
-    if (!isTierUnlocked(puzzle.id, tier) || isMastered) {
-      return
-    }
-
-    setSearchParams({ tier })
-    setActiveTier(tier)
   }
 
   const submitWord = () => {
@@ -504,12 +284,10 @@ export function Puzzle() {
       rejectWord('Build a word first.', false)
       return
     }
-
     if (normalized.length < 3) {
       rejectWord('Words must be at least 3 letters.', true)
       return
     }
-
     if (foundWordsAll.has(normalized)) {
       setAlreadyFoundPulse((value) => value + 1)
       setTemporaryMessage('already found')
@@ -517,14 +295,13 @@ export function Puzzle() {
       setCurrentWord('')
       return
     }
-
     if (!allowedWordsSet.has(normalized)) {
-      rejectWord('Word is not in this tier list.', true)
+      rejectWord('Word is not in this level list.', true)
       return
     }
 
     const shouldTryCrossword = crosswordWordsSet.has(normalized)
-    const matchingSlot = shouldTryCrossword ? findTemplateSlotForWord(tierConfig.crosswordGrid, runGrid, normalized) : null
+    const matchingSlot = shouldTryCrossword ? findTemplateSlotForWord(level.crosswordGrid, runGrid, normalized) : null
 
     if (shouldTryCrossword && matchingSlot) {
       const nextGrid = placeWord(runGrid, normalized, matchingSlot)
@@ -533,70 +310,17 @@ export function Puzzle() {
       setRunGrid(nextGrid)
       setCrosswordWords(nextCrosswordWords)
       setLatestBonusWord(null)
-      recordRun(puzzle.id, activeTier, nextFound, starsForFound(nextFound, tierConfig))
+      recordRun(level.id, nextFound, starsForFound(nextFound, totalAvailable, level.starThresholdsPct))
       setFeedback(`Filled crossword: ${normalized}`)
     } else {
       const nextBonusWords = [...bonusWords, normalized]
       const nextFound = new Set([...crosswordWords, ...nextBonusWords]).size
       setBonusWords(nextBonusWords)
       setLatestBonusWord(normalized)
-      recordRun(puzzle.id, activeTier, nextFound, starsForFound(nextFound, tierConfig))
+      recordRun(level.id, nextFound, starsForFound(nextFound, totalAvailable, level.starThresholdsPct))
       setFeedback(`Bonus word found: ${normalized}`)
     }
-
     setCurrentWord('')
-  }
-
-  const closeRunToResults = () => {
-    const params = new URLSearchParams({
-      tier: activeTier,
-      found: String(totalFound),
-      run: String(Date.now()),
-    })
-    navigate(`/results/${puzzle.id}?${params.toString()}`)
-  }
-
-  const startNextTier = (tier: TierName) => {
-    setShowCompletionDialog(false)
-    setCurrentWord('')
-    setSearchParams({ tier })
-    setActiveTier(tier)
-  }
-
-  const goToNextPuzzle = () => {
-    const puzzleIndex = bonusRushPuzzles.findIndex((entry) => entry.id === puzzle.id)
-    const nextPuzzle = puzzleIndex >= 0 ? bonusRushPuzzles[puzzleIndex + 1] : undefined
-    if (!nextPuzzle) {
-      navigate('/')
-      return
-    }
-
-    navigate(`/puzzle/${nextPuzzle.id}?tier=Bronze`)
-  }
-
-  const openLeaveDialog = () => {
-    setPausedSeconds(secondsLeft)
-    setShowLeaveDialog(true)
-  }
-
-  const keepPlaying = () => {
-    const resumeSeconds = pausedSeconds ?? secondsLeft
-    setSecondsLeft(resumeSeconds)
-    writeStoredTimerSeconds(puzzle.id, activeTier, resumeSeconds)
-    setShowLeaveDialog(false)
-    setPausedSeconds(null)
-  }
-
-  const loseProgressAndLeave = () => {
-    window.localStorage.removeItem(timerStorageKey(puzzle.id, activeTier))
-    setShowLeaveDialog(false)
-    setPausedSeconds(null)
-    setCurrentWord('')
-    setCrosswordWords([])
-    setBonusWords([])
-    setLatestBonusWord(null)
-    setFeedback('')
-    navigate('/')
   }
 
   const addExtraTimeFromRewardVideo = () => {
@@ -606,21 +330,19 @@ export function Puzzle() {
     const nextSeconds = secondsLeft + 30
     setRewardVideosUsed((value) => value + 1)
     setSecondsLeft(nextSeconds)
-    writeStoredTimerSeconds(puzzle.id, activeTier, nextSeconds)
+    writeStoredTimerSeconds(level.id, nextSeconds)
     setShowTimeExpiredModal(false)
   }
 
   const addExtraTimeFromCoins = () => {
-    const cost = coinCostByTier[activeTier]
-    if (inventory.coins < cost) {
+    if (inventory.coins < COIN_COST) {
       return
     }
-
-    const next = updateInventory({ coins: -cost })
+    const next = updateInventory({ coins: -COIN_COST })
     const nextSeconds = secondsLeft + 30
     setInventory(next)
     setSecondsLeft(nextSeconds)
-    writeStoredTimerSeconds(puzzle.id, activeTier, nextSeconds)
+    writeStoredTimerSeconds(level.id, nextSeconds)
     setShowTimeExpiredModal(false)
   }
 
@@ -631,69 +353,32 @@ export function Puzzle() {
     const nextSeconds = secondsLeft + 60
     setIapUsed(true)
     setSecondsLeft(nextSeconds)
-    writeStoredTimerSeconds(puzzle.id, activeTier, nextSeconds)
+    writeStoredTimerSeconds(level.id, nextSeconds)
     setShowTimeExpiredModal(false)
-  }
-
-  const fillCrosswordDebug = () => {
-    let nextGrid = runGrid
-    const nextCrosswordWords = [...crosswordWords]
-
-    for (const word of crosswordWordsList) {
-      if (foundWordsAll.has(word)) {
-        continue
-      }
-      const slot = findTemplateSlotForWord(tierConfig.crosswordGrid, nextGrid, word)
-      if (!slot) {
-        continue
-      }
-      nextGrid = placeWord(nextGrid, word, slot)
-      nextCrosswordWords.push(word)
-    }
-
-    const dedupedCrossword = [...new Set(nextCrosswordWords)]
-    const nextFound = new Set([...dedupedCrossword, ...bonusWords]).size
-
-    setRunGrid(nextGrid)
-    setCrosswordWords(dedupedCrossword)
-    setLatestBonusWord(null)
-    recordRun(puzzle.id, activeTier, nextFound, starsForFound(nextFound, tierConfig))
-  }
-
-  const fillBonusDebug = () => {
-    const nextBonus = [...new Set([...bonusWords, ...missingWords])]
-    const nextFound = new Set([...crosswordWords, ...nextBonus]).size
-
-    setBonusWords(nextBonus)
-    setLatestBonusWord(null)
-    recordRun(puzzle.id, activeTier, nextFound, starsForFound(nextFound, tierConfig))
   }
 
   const resetAllProgressDebug = () => {
     setProgress({})
-    for (const puzzleEntry of bonusRushPuzzles) {
-      for (const tier of tiers) {
-        window.localStorage.removeItem(timerStorageKey(puzzleEntry.id, tier))
-      }
+    for (const levelEntry of bonusRushLevels) {
+      window.localStorage.removeItem(timerStorageKey(levelEntry.id))
     }
-    setRunGrid(buildRunGrid(tierConfig))
+    setRunGrid(buildRunGrid(level.crosswordGrid))
     setCurrentWord('')
     setCrosswordWords([])
     setBonusWords([])
     setLatestBonusWord(null)
-    setFeedback('All tier progress has been reset.')
-    setDebugOutput('Progress reset for all levels and tiers.')
+    setFeedback('All level progress has been reset.')
+    setDebugOutput('Progress reset for all levels.')
   }
 
   return (
-    <section className={`puzzle-page card page tier-accent-${activeTier.toLowerCase()}`}>
+    <section className="puzzle-page card page">
       <header className="puzzle-header">
-        <SecondaryButton onClick={openLeaveDialog}>Back</SecondaryButton>
-        <TierBadge tier={activeTier} />
+        <SecondaryButton onClick={() => setShowLeaveDialog(true)}>Back</SecondaryButton>
         <span className="timer-pill" aria-label="Timer">
           {formatTimer(secondsLeft)}
         </span>
-        <BonusCounter found={bonusWords.length} bonusTotal={tierConfig.bonusWordsTotal} />
+        <BonusCounter found={bonusWords.length} bonusTotal={Math.max(0, level.totalWords - crosswordWordsList.length)} />
         <div className="inventory-strip" aria-label="Inventory">
           <span className="inventory-chip">Coins: {inventory.coins}</span>
           <span className="inventory-chip">Hints: {inventory.hints}</span>
@@ -702,32 +387,11 @@ export function Puzzle() {
 
       <ProgressBar current={totalFound} total={totalAvailable} label="Words Found" />
 
-      <div className="tier-tabs" role="tablist" aria-label="Tier selection">
-        {tiers.map((tier) => {
-          const bestStars = getProgress()[puzzle.id]?.[tier]?.bestStars ?? 0
-          const mastered = bestStars >= 3
-          const locked = !isTierUnlocked(puzzle.id, tier) || mastered
-          return (
-            <button
-              key={tier}
-              type="button"
-              role="tab"
-              className={`tier-tab ${activeTier === tier ? 'active' : ''}`}
-              aria-selected={activeTier === tier}
-              disabled={locked}
-              onClick={() => switchTier(tier)}
-            >
-              {tier}
-            </button>
-          )
-        })}
-      </div>
-
       <div className="puzzle-main">
-        <CrosswordGrid grid={runGrid} boardOnlyLetters={tierConfig.addedBoardLetters} />
+        <CrosswordGrid grid={runGrid} />
 
         <div className="word-wheel-panel">
-          <WordWheel wheelLetters={tierConfig.wheelLetters} currentWord={currentWord} onCurrentWordChange={setCurrentWord} />
+          <WordWheel wheelLetters={level.rootLetters} currentWord={currentWord} onCurrentWordChange={setCurrentWord} />
 
           <div
             key={`current-word-pill-${invalidWordPulse}-${alreadyFoundPulse}`}
@@ -778,58 +442,52 @@ export function Puzzle() {
 
       <TimeExpiredModal
         open={showTimeExpiredModal}
-        tier={activeTier}
+        coinCost={COIN_COST}
         coins={inventory.coins}
         rewardVideosUsed={rewardVideosUsed}
         iapUsed={iapUsed}
         onRewardVideo={addExtraTimeFromRewardVideo}
         onCoins={addExtraTimeFromCoins}
         onIap={addExtraTimeFromIap}
-        onDecline={closeRunToResults}
+        onDecline={() => navigate('/')}
       />
 
       {showLeaveDialog ? (
         <div className="modal-backdrop" role="presentation">
           <section className="leave-puzzle-modal card" role="dialog" aria-modal="true" aria-labelledby="leave-puzzle-title">
-            <h2 id="leave-puzzle-title">Leave puzzle?</h2>
+            <h2 id="leave-puzzle-title">Leave level?</h2>
             <p>Leaving now will reset this run's progress and timer until you restart this level.</p>
             <div className="leave-puzzle-actions">
-              <PrimaryButton onClick={loseProgressAndLeave}>lose progress</PrimaryButton>
-              <SecondaryButton onClick={keepPlaying}>keep playing</SecondaryButton>
+              <PrimaryButton
+                onClick={() => {
+                  window.localStorage.removeItem(timerStorageKey(level.id))
+                  navigate('/')
+                }}
+              >
+                lose progress
+              </PrimaryButton>
+              <SecondaryButton onClick={() => setShowLeaveDialog(false)}>keep playing</SecondaryButton>
             </div>
           </section>
         </div>
       ) : null}
 
-      {showCompletionDialog ? (
+      {showCompleteDialog ? (
         <div className="modal-backdrop" role="presentation">
-          <section className="tier-complete-modal card" role="dialog" aria-modal="true" aria-labelledby="tier-complete-title">
-            <h2 id="tier-complete-title">Congratualtions! Here are your rewards.</h2>
-            {completionRewards.length > 0 ? (
-              <ul className="tier-complete-rewards">
-                {completionRewards.map((reward) => (
-                  <li key={`${completionRunClaimId}-${reward}`}>{reward}</li>
-                ))}
-              </ul>
-            ) : (
-              <p>No rewards earned this run.</p>
-            )}
-
-            <p className="tier-complete-copy">
-              {activeTier === 'Bronze'
-                ? 'Try Again for Silver or go to the next level?'
-                : activeTier === 'Silver'
-                  ? 'Go to the next level or go for Gold tier?'
-                  : 'You have mastered this level. Go to the next level?'}
-            </p>
-
+          <section className="tier-complete-modal card" role="dialog" aria-modal="true" aria-labelledby="level-complete-title">
+            <h2 id="level-complete-title">Congratulations! Level complete.</h2>
+            <p>{`Stars earned: ${stars}/3`}</p>
             <div className="tier-complete-actions">
-              {nextTier ? (
-                <PrimaryButton onClick={() => startNextTier(nextTier)}>
-                  {activeTier === 'Bronze' ? 'Try Silver' : 'Go for Gold'}
-                </PrimaryButton>
-              ) : null}
-              <SecondaryButton onClick={goToNextPuzzle}>Next Level</SecondaryButton>
+              <PrimaryButton onClick={() => navigate(`/puzzle/${level.id}`)}>Replay</PrimaryButton>
+              <SecondaryButton
+                onClick={() => {
+                  const currentIndex = bonusRushLevels.findIndex((entry) => entry.id === level.id)
+                  const nextLevel = currentIndex >= 0 ? bonusRushLevels[currentIndex + 1] : undefined
+                  navigate(nextLevel ? `/puzzle/${nextLevel.id}` : '/')
+                }}
+              >
+                Next Level
+              </SecondaryButton>
             </div>
           </section>
         </div>
@@ -840,26 +498,10 @@ export function Puzzle() {
           <section className="puzzle-debug-modal card" role="dialog" aria-modal="true" aria-labelledby="puzzle-debug-title">
             <h2 id="puzzle-debug-title">Debug Commands</h2>
             <div className="puzzle-debug-actions">
-              <SecondaryButton onClick={fillCrosswordDebug}>Autofill Puzzle Words</SecondaryButton>
-              <SecondaryButton onClick={fillBonusDebug}>Autofill Bonus Words</SecondaryButton>
-              <SecondaryButton onClick={() => setShowResetProgressConfirm(true)}>Reset All Progress</SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(allowedWordsList, null, 2))}>allowedWords</SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(crosswordWordsList, null, 2))}>crosswordWords</SecondaryButton>
-              <SecondaryButton
-                onClick={() =>
-                  setDebugOutput(
-                    [
-                      `foundCrossword: ${crosswordWords.length}`,
-                      `foundBonus: ${bonusWords.length}`,
-                      `foundAllWords: ${foundWordsAll.size}`,
-                      `totalAvailable: ${totalAvailable}`,
-                    ].join('\n'),
-                  )
-                }
-              >
-                found counts
-              </SecondaryButton>
               <SecondaryButton onClick={() => setDebugOutput(JSON.stringify(missingWords, null, 2))}>missingWords</SecondaryButton>
+              <SecondaryButton onClick={() => setShowResetProgressConfirm(true)}>Reset All Progress</SecondaryButton>
             </div>
             <pre className="puzzle-debug-output">{debugOutput || 'Select a command to inspect values.'}</pre>
             <PrimaryButton onClick={() => setShowDebugMenu(false)}>Close</PrimaryButton>
